@@ -1,0 +1,362 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@import "@fontsource/anton/400.css";
+@import "@fontsource/archivo/400.css";
+@import "@fontsource/archivo/600.css";
+@import "@fontsource/archivo/700.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-line: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-sky: var(--sky);
+  --color-sun: var(--sun);
+
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--paper);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--paper);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--paper);
+  --color-secondary: var(--paper-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-accent-foreground: var(--paper);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: var(--paper);
+  --color-border: color-mix(in srgb, var(--ink) 15%, transparent);
+  --color-input: color-mix(in srgb, var(--ink) 15%, transparent);
+  --color-ring: var(--accent);
+
+  --font-display: "Anton", "Archivo", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-condensed: "Archivo", system-ui, sans-serif;
+
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+}
+
+:root {
+  --ink: #0d0d0d;
+  --paper: #faf9f6;
+  --paper-2: #f2f0ea;
+  --muted: #6b6b6b;
+  --accent: #00b4d8;
+  --accent-2: #f97316;
+  --sun: #fcbf49;
+  --sky: #0077b6;
+  --radius: 0;
+}
+
+.dark {
+  --ink: #faf9f6;
+  --paper: #0d0d0d;
+  --paper-2: #161616;
+  --muted: #a0a0a0;
+  --accent: #00b4d8;
+  --accent-2: #f97316;
+  --sun: #fcbf49;
+  --sky: #0077b6;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--paper);
+  }
+}
+
+@utility display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+  font-weight: 400;
+}
+
+@utility serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 600;
+}
+
+@utility hairline {
+  border-width: 1px;
+  border-color: var(--ink);
+}
+
+@utility hairline-soft {
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+@utility grayscale-img {
+  filter: grayscale(1) contrast(1.05);
+  transition: filter 0.6s ease;
+}
+
+@utility grayscale-img-hover {
+  &:hover img,
+  &:hover .gs {
+    filter: grayscale(0) contrast(1);
+  }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@utility marquee-track {
+  animation: marquee 40s linear infinite;
+  will-change: transform;
+}
+
+@keyframes scroll-cue {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(6px); opacity: 1; }
+}
+
+@utility scroll-cue {
+  animation: scroll-cue 1.8s ease-in-out infinite;
+}
+
+@utility card-depth {
+  box-shadow: 0 1px 2px rgba(13, 13, 13, 0.04), 0 8px 24px rgba(13, 13, 13, 0.06);
+  transition: box-shadow 0.4s ease, transform 0.4s ease;
+}
+
+@utility card-depth-hover {
+  &:hover {
+    box-shadow: 0 24px 60px rgba(13, 13, 13, 0.14);
+    transform: translateY(-6px);
+  }
+}
+
+@utility header-depth {
+  box-shadow: 0 1px 0 rgba(13, 13, 13, 0.08), 0 6px 20px rgba(13, 13, 13, 0.05);
+}
+
+@utility tabs-depth {
+  box-shadow: 0 6px 18px rgba(13, 13, 13, 0.05);
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ============ Movimento e profundidade (v2) ============ */
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+@utility float-slow {
+  animation: float-y 7s ease-in-out infinite;
+  will-change: transform;
+}
+@utility float-med {
+  animation: float-y 5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes sway {
+  0%, 100% { transform: rotate(-3deg) translateX(0); }
+  50% { transform: rotate(3deg) translateX(14px); }
+}
+@utility sway {
+  animation: sway 9s ease-in-out infinite;
+  transform-origin: top center;
+  will-change: transform;
+}
+
+@keyframes wind-drift {
+  from { transform: translateX(-30px); opacity: 0; }
+  20% { opacity: 0.6; }
+  80% { opacity: 0.6; }
+  to { transform: translateX(60px); opacity: 0; }
+}
+@utility wind-drift {
+  animation: wind-drift 6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@utility gradient-animated {
+  background-size: 200% 200%;
+  animation: gradient-pan 12s ease infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.08); }
+}
+@utility pulse-glow {
+  animation: pulse-glow 5s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* Ondas fluindo como água real, translação horizontal contínua */
+@keyframes wave-flow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@utility wave-flow {
+  animation: wave-flow 12s linear infinite;
+  will-change: transform;
+}
+@utility wave-flow-slow {
+  animation: wave-flow 18s linear infinite;
+  will-change: transform;
+}
+@utility wave-flow-reverse {
+  animation: wave-flow 15s linear infinite reverse;
+  will-change: transform;
+}
+
+/* Flutuação vertical "lunar", sutil, para elementos decorativos e seções inteiras */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@utility float-gentle {
+  animation: float-gentle 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Respiração suave, escala quase imperceptível */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+@utility breathe {
+  animation: breathe 8s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ============ Rajada de vento (gust) ============
+   Família de animações compartilhando a mesma "frequência" (8s), aplicada
+   a títulos, blocos e ícones pela página inteira. Usa pequenos delays
+   (gust-1..gust-5) pra simular o vento varrendo de elemento a elemento,
+   em vez de tudo balançando em sincronia robótica. Movimento sutil:
+   rotação de 1-2 graus e translação de poucos pixels, nada que pareça
+   "tremor" ou distraia da leitura. */
+
+@keyframes gust-tilt {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  30% { transform: rotate(-0.6deg) translateX(-2px); }
+  60% { transform: rotate(0.5deg) translateX(3px); }
+}
+@utility gust {
+  animation: gust-tilt 8s ease-in-out infinite;
+  will-change: transform;
+}
+@utility gust-1 { animation: gust-tilt 8s ease-in-out infinite; animation-delay: 0s; will-change: transform; }
+@utility gust-2 { animation: gust-tilt 8s ease-in-out infinite; animation-delay: 0.6s; will-change: transform; }
+@utility gust-3 { animation: gust-tilt 8s ease-in-out infinite; animation-delay: 1.2s; will-change: transform; }
+@utility gust-4 { animation: gust-tilt 8s ease-in-out infinite; animation-delay: 1.8s; will-change: transform; }
+@utility gust-5 { animation: gust-tilt 8s ease-in-out infinite; animation-delay: 2.4s; will-change: transform; }
+
+@keyframes gust-lift {
+  0%, 100% { transform: translateY(0); }
+  35% { transform: translateY(-4px); }
+  65% { transform: translateY(2px); }
+}
+@utility gust-lift-1 { animation: gust-lift 8s ease-in-out infinite; animation-delay: 0s; will-change: transform; }
+@utility gust-lift-2 { animation: gust-lift 8s ease-in-out infinite; animation-delay: 0.5s; will-change: transform; }
+@utility gust-lift-3 { animation: gust-lift 8s ease-in-out infinite; animation-delay: 1s; will-change: transform; }
+@utility gust-lift-4 { animation: gust-lift 8s ease-in-out infinite; animation-delay: 1.5s; will-change: transform; }
+
+/* Ícones de card: leve "balanço de bandeira", rotação a partir do topo */
+@keyframes gust-flag {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(-3deg); }
+  70% { transform: rotate(2deg); }
+}
+@utility gust-flag {
+  animation: gust-flag 7s ease-in-out infinite;
+  transform-origin: top center;
+  will-change: transform;
+}
+
+/* Deep ambient shadow for 3D depth on sections */
+@utility section-depth {
+  box-shadow: 0 -30px 60px -30px rgba(13, 13, 13, 0.12), 0 30px 60px -30px rgba(13, 13, 13, 0.12);
+}
+
+/* Card with stronger lift + colored glow on hover */
+@utility card-lift {
+  box-shadow: 0 1px 2px rgba(13,13,13,0.04), 0 10px 30px rgba(13,13,13,0.07);
+  transition: box-shadow 0.45s cubic-bezier(0.2,0.7,0.2,1), transform 0.45s cubic-bezier(0.2,0.7,0.2,1);
+}
+@utility card-lift-hover {
+  &:hover {
+    box-shadow: 0 30px 70px -20px rgba(13,13,13,0.22), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+    transform: translateY(-8px);
+  }
+}
+
+/* Variante para cards sobre fundo escuro: glow claro em vez de sombra escura */
+@utility card-lift-dark {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 36px rgba(0,0,0,0.35);
+  transition: box-shadow 0.45s cubic-bezier(0.2,0.7,0.2,1), transform 0.45s cubic-bezier(0.2,0.7,0.2,1);
+}
+@utility card-lift-dark-hover {
+  &:hover {
+    box-shadow: 0 35px 80px -20px rgba(0,0,0,0.55), 0 0 40px -4px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float-slow, .float-med, .sway, .wind-drift, .gradient-animated, .pulse-glow,
+  .wave-flow, .wave-flow-slow, .wave-flow-reverse, .float-gentle, .breathe,
+  .gust, .gust-1, .gust-2, .gust-3, .gust-4, .gust-5,
+  .gust-lift-1, .gust-lift-2, .gust-lift-3, .gust-lift-4, .gust-flag {
+    animation: none !important;
+  }
+}
