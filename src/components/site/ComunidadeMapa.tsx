@@ -4,49 +4,56 @@ import { motion, AnimatePresence, useInView } from "motion/react";
 import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarClock, Navigation2 } from "lucide-react";
 
 /**
- * Mapa da comunidade v3 — litoral do vento completo (Fortaleza → Lençóis
- * Maranhenses), card de spot branco com bússolas de direção do vento.
+ * Mapa da comunidade v4 — litoral do NE com traçado realista.
+ * A costa curva característica: sai de Fortaleza (SE) subindo pra
+ * Cumbuco/Paracuru, faz inflexão em Jericoacoara e vira horizontal
+ * indo pros Lençóis Maranhenses (NW).
  *
- * DEMO_RIDERS / SPOT_WIND / DEMO_GROUPS são dados de demonstração (front
- * only). Quando o backend existir (Supabase Realtime), troque pelos canais
- * mantendo o mesmo shape — a UI inteira já está pronta.
+ * DEMO_RIDERS / SPOT_WIND / DEMO_GROUPS são dados de demonstração.
+ * Quando o backend existir (Supabase Realtime), troque pelos canais
+ * mantendo o mesmo shape.
  */
 
 type Rider = { id: string; name: string; spot: string; x: number; y: number; level: string };
 
-const DEMO_RIDERS: Rider[] = [
-  { id: "r1", name: "Léo", spot: "Cumbuco", x: 72, y: 44, level: "Avançado" },
-  { id: "r2", name: "Marina", spot: "Cumbuco", x: 74.5, y: 40, level: "Intermediário" },
-  { id: "r3", name: "Pedrão", spot: "Taíba", x: 65, y: 38, level: "Avançado" },
-  { id: "r4", name: "Ana", spot: "Paracuru", x: 59, y: 34, level: "Iniciante" },
-  { id: "r5", name: "Duda", spot: "Flecheiras", x: 53, y: 30, level: "Avançado" },
-  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 44, y: 26, level: "Intermediário" },
-  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 38, y: 24, level: "Avançado" },
-  { id: "r8", name: "Thibaut", spot: "Preá", x: 33, y: 21.5, level: "Avançado" },
-  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 28.5, y: 19.5, level: "Intermediário" },
-  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 18, y: 19, level: "Intermediário" },
-  { id: "r11", name: "Bia", spot: "Atins", x: 11, y: 17, level: "Avançado" },
-];
-
-/** Rota do vento: Fortaleza → Lençóis Maranhenses. */
+/**
+ * Coordenadas sobre a costa real do NE:
+ * - Fortaleza no canto SE (bem à direita, y alto)
+ * - Curva subindo em diagonal por Cumbuco → Paracuru → Flecheiras
+ * - Inflexão em Jericoacoara/Preá — costa vira horizontal
+ * - Segue horizontal pra Barra Grande → Atins → Lençóis (NW)
+ */
 const SPOTS = [
-  { name: "Lençóis", x: 5, y: 25 },
-  { name: "Atins", x: 11, y: 24.5 },
-  { name: "Barra Grande", x: 18, y: 25.5 },
-  { name: "Tatajuba", x: 23.5, y: 27 },
-  { name: "Jericoacoara", x: 28.5, y: 28 },
-  { name: "Preá", x: 33, y: 29.5 },
-  { name: "Ilha do Guajiru", x: 38.5, y: 31.5 },
-  { name: "Icaraizinho", x: 44, y: 34 },
-  { name: "Mundaú", x: 49, y: 36.5 },
-  { name: "Flecheiras", x: 53.5, y: 38.5 },
-  { name: "Paracuru", x: 59, y: 42 },
-  { name: "Taíba", x: 65, y: 46.5 },
-  { name: "Cumbuco", x: 72, y: 51 },
-  { name: "Fortaleza", x: 80, y: 55.5 },
+  { name: "Lençóis", x: 4, y: 20 },
+  { name: "Atins", x: 10, y: 19 },
+  { name: "Barra Grande", x: 17, y: 18.5 },
+  { name: "Tatajuba", x: 23, y: 19 },
+  { name: "Jericoacoara", x: 28.5, y: 20 },
+  { name: "Preá", x: 33, y: 22 },
+  { name: "Ilha do Guajiru", x: 38, y: 25.5 },
+  { name: "Icaraizinho", x: 43, y: 30 },
+  { name: "Mundaú", x: 48, y: 34 },
+  { name: "Flecheiras", x: 53, y: 38 },
+  { name: "Paracuru", x: 59, y: 42.5 },
+  { name: "Taíba", x: 65, y: 47 },
+  { name: "Cumbuco", x: 72, y: 51.5 },
+  { name: "Fortaleza", x: 80, y: 56 },
 ];
 
-/** Leitura de vento por spot (nós + direção em graus). DEMO. */
+const DEMO_RIDERS: Rider[] = [
+  { id: "r1", name: "Léo", spot: "Cumbuco", x: 71, y: 45, level: "Avançado" },
+  { id: "r2", name: "Marina", spot: "Cumbuco", x: 74, y: 43, level: "Intermediário" },
+  { id: "r3", name: "Pedrão", spot: "Taíba", x: 64, y: 40, level: "Avançado" },
+  { id: "r4", name: "Ana", spot: "Paracuru", x: 58, y: 36, level: "Iniciante" },
+  { id: "r5", name: "Duda", spot: "Flecheiras", x: 52, y: 31, level: "Avançado" },
+  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 43, y: 24, level: "Intermediário" },
+  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 38, y: 19, level: "Avançado" },
+  { id: "r8", name: "Thibaut", spot: "Preá", x: 33, y: 16, level: "Avançado" },
+  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 28.5, y: 14, level: "Intermediário" },
+  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 17, y: 13, level: "Intermediário" },
+  { id: "r11", name: "Bia", spot: "Atins", x: 10, y: 13.5, level: "Avançado" },
+];
+
 const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: number }> = {
   "Fortaleza": { avg: 18, gust: 23, dir: "SSE", deg: 157 },
   "Cumbuco": { avg: 22, gust: 27, dir: "E", deg: 90 },
@@ -87,13 +94,11 @@ function useIsMobile() {
   return m;
 }
 
-/** Bússola de vento: rosa dos ventos + seta na direção + valor no centro. */
 function Compass({ label, value, deg, accent }: { label: string; value: number; deg: number; accent: string }) {
   return (
     <div className="flex flex-col items-center">
       <svg viewBox="0 0 88 88" className="w-[74px] md:w-[86px]">
         <circle cx="44" cy="44" r="40" fill="none" stroke="#0c1a20" strokeOpacity="0.1" strokeWidth="1.5" />
-        {/* ticks dos 8 rumos */}
         {Array.from({ length: 8 }, (_, i) => {
           const a = (i * 45 * Math.PI) / 180;
           const main = i % 2 === 0;
@@ -109,7 +114,6 @@ function Compass({ label, value, deg, accent }: { label: string; value: number; 
         <text x="79" y="47" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.4">L</text>
         <text x="44" y="83" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.4">S</text>
         <text x="9" y="47" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.4">O</text>
-        {/* seta: aponta o rumo do vento */}
         <g transform={`rotate(${deg} 44 44)`}>
           <path d="M44 14 L49.5 26 L44 22.8 L38.5 26 Z" fill={accent} style={{ filter: `drop-shadow(0 1px 4px ${accent}66)` }} />
           <path d="M44 74 L46.5 66 L44 68 L41.5 66 Z" fill="#0c1a20" fillOpacity="0.2" />
@@ -122,7 +126,6 @@ function Compass({ label, value, deg, accent }: { label: string; value: number; 
   );
 }
 
-/** Card do spot — fundo branco, duas bússolas (média e rajada). */
 function SpotPanel({ spot, onClose, compact }: { spot: string; onClose?: () => void; compact?: boolean }) {
   const w = SPOT_WIND[spot] || { avg: 20, gust: 25, dir: "E", deg: 90 };
   return (
@@ -148,7 +151,7 @@ function SpotPanel({ spot, onClose, compact }: { spot: string; onClose?: () => v
         <Compass label="Vento médio" value={w.avg} deg={w.deg} accent="#18b26b" />
         <Compass label="Rajada" value={w.gust} deg={w.deg} accent="#0098c0" />
       </div>
-      <div className="mt-3 h-1.5 rounded-full bg-black/8 overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
+      <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
         <div className="h-full rounded-full" style={{ width: `${Math.min(100, (w.avg / 40) * 100)}%`, background: "linear-gradient(90deg,#18b26b,#a5d922)" }} />
       </div>
     </div>
@@ -189,7 +192,6 @@ export function ComunidadeMapa() {
   const [showGroups, setShowGroups] = useState(false);
   const [joined, setJoined] = useState<Set<string>>(new Set());
 
-  /* ---------- pan & zoom ---------- */
   const viewRef = useRef<HTMLDivElement>(null);
   const [t, setT] = useState({ x: 0, y: 0, s: 1 });
   const tRef = useRef(t);
@@ -229,7 +231,6 @@ export function ComunidadeMapa() {
     const prev = pointers.current.get(e.pointerId);
     if (!prev) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
     if (pointers.current.size === 2 && pinch.current) {
       const [a, b] = [...pointers.current.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -314,7 +315,7 @@ export function ComunidadeMapa() {
             <span className="serif italic normal-case tracking-normal text-[#3fd0f0]">no vento agora.</span>
           </h2>
           <p className="mt-6 text-lg md:text-xl text-white/60 leading-relaxed max-w-xl">
-            De Fortaleza aos Lençóis Maranhenses — a rota do vento inteira num mapa só.
+            Do Ceará ao Maranhão — a rota do vento que faz do Nordeste o paraíso mundial do kite.
             Arrasta, dá zoom, clica num ponto verde: vê o vento do pico e marca de velejar junto.
           </p>
         </motion.div>
@@ -328,7 +329,7 @@ export function ComunidadeMapa() {
         >
           <div
             ref={viewRef}
-            className="relative aspect-[16/13] md:aspect-[21/10] cursor-grab active:cursor-grabbing select-none touch-none"
+            className="relative aspect-[16/12] md:aspect-[21/10] cursor-grab active:cursor-grabbing select-none touch-none"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -339,27 +340,79 @@ export function ComunidadeMapa() {
               <div className="absolute inset-0" style={{ background: "linear-gradient(215deg, #0b3a52 0%, #0d4a68 35%, #0f5c80 65%, #11689a 100%)" }} />
               <WindParticles />
 
+              {/*
+                Litoral do NE — curva realista:
+                — MA/PI (esquerda): costa quase horizontal (Lençóis → Barra Grande)
+                — Inflexão em Jericoacoara/Preá
+                — CE (direita): costa em diagonal descendente (Guajiru → Icaraizinho → Flecheiras → Paracuru → Cumbuco → Fortaleza)
+              */}
               <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
                 <defs>
                   <linearGradient id="terra" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#123c33" />
                     <stop offset="100%" stopColor="#0d2b25" />
                   </linearGradient>
+                  <radialGradient id="delta" cx="0.5" cy="0.5" r="0.5">
+                    <stop offset="0%" stopColor="#3fd0f0" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#3fd0f0" stopOpacity="0" />
+                  </radialGradient>
                 </defs>
-                {/* Costa Lençóis → Fortaleza: mais longa e com delta dos Lençóis à esquerda */}
-                <path d="M0 28 Q 10 25.5 20 27 Q 30 29 40 32.5 Q 52 37 66 46 Q 80 54 100 58 L 100 62 L 0 62 Z" fill="#c8b48a" opacity="0.9" />
-                <path d="M0 31 Q 10 28.5 20 30 Q 30 32 40 35.5 Q 52 40 66 49 Q 80 57 100 61 L 100 62 L 0 62 Z" fill="url(#terra)" />
-                {/* lagoas dos Lençóis */}
-                <ellipse cx="4.5" cy="36" rx="1.6" ry="0.9" fill="#3fd0f0" opacity="0.35" />
-                <ellipse cx="8" cy="39" rx="1.2" ry="0.7" fill="#3fd0f0" opacity="0.3" />
-                <ellipse cx="12" cy="35.5" rx="1.4" ry="0.8" fill="#3fd0f0" opacity="0.3" />
+
+                {/* Faixa de areia — segue a costa curvada */}
+                <path
+                  d="M 0 21
+                     Q 8 20 17 20
+                     Q 23 20.5 28 21.5
+                     Q 33 23 40 27
+                     Q 50 33 60 41
+                     Q 72 50 85 56
+                     Q 93 59 100 60
+                     L 100 62 L 0 62 Z"
+                  fill="#c8b48a"
+                  opacity="0.9"
+                />
+                {/* Terra — ligeiramente ao sul da faixa de areia */}
+                <path
+                  d="M 0 24
+                     Q 8 23 17 23
+                     Q 23 23.5 28 24.5
+                     Q 33 26 40 30
+                     Q 50 36 60 44
+                     Q 72 53 85 58
+                     Q 93 61 100 61.5
+                     L 100 62 L 0 62 Z"
+                  fill="url(#terra)"
+                />
+
+                {/* Delta dos Lençóis — mais visível */}
+                <circle cx="4" cy="26" r="4" fill="url(#delta)" />
+                <ellipse cx="3" cy="24" rx="1.4" ry="0.6" fill="#3fd0f0" opacity="0.5" />
+                <ellipse cx="6" cy="26" rx="1" ry="0.5" fill="#3fd0f0" opacity="0.45" />
+                <ellipse cx="4.5" cy="28" rx="1.2" ry="0.5" fill="#3fd0f0" opacity="0.4" />
+                <ellipse cx="8" cy="27" rx="0.9" ry="0.4" fill="#3fd0f0" opacity="0.35" />
+
+                {/* Labels de estados no interior */}
+                <text x="12" y="45" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.12" letterSpacing="0.3">MARANHÃO</text>
+                <text x="55" y="55" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.12" letterSpacing="0.3">CEARÁ</text>
+
+                {/* Rosa dos ventos sutil no canto — referência de direção do vento */}
+                <g transform="translate(88 10)" opacity="0.35">
+                  <circle cx="0" cy="0" r="3.5" fill="none" stroke="#ffffff" strokeWidth="0.15" />
+                  <path d="M0 -3.5 L0.5 -0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" />
+                  <path d="M0 3.5 L0.5 0.5 L0 0 L-0.5 0.5 Z" fill="#ffffff" opacity="0.6" />
+                  <path d="M3.5 0 L0.5 0.5 L0 0 L0.5 -0.5 Z" fill="#ffffff" opacity="0.6" />
+                  <path d="M-3.5 0 L-0.5 0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" opacity="0.6" />
+                  <text x="0" y="-4.5" fontSize="1.4" fill="#ffffff" textAnchor="middle" fontWeight="700">N</text>
+                </g>
               </svg>
 
               {SPOTS.map((s) => (
-                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 7}%` }}>
-                  <div className="flex flex-col items-center gap-1" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
-                    <MapPin className="h-3 w-3 text-white/40" />
-                    <span className="text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/55 whitespace-nowrap">{s.name}</span>
+                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 4}%` }}>
+                  <div className="flex flex-col items-center gap-0.5" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
+                    <MapPin className="h-3 w-3 text-white/45" />
+                    <span className="text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/60 whitespace-nowrap font-semibold" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
+                      {s.name}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -413,7 +466,7 @@ export function ComunidadeMapa() {
               </button>
             </div>
 
-            {/* controles de zoom */}
+            {/* Controles de zoom */}
             <div className="absolute bottom-3 left-3 md:bottom-6 md:left-6 flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
               <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
               <div className="h-px bg-white/10" />
@@ -557,7 +610,6 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
     if (!tt) return;
     setMsgs((m) => [...m, { me: true, text: tt }]);
     setText("");
-    // DEMO: resposta simulada. Trocar por canal Realtime quando o backend existir.
     setTimeout(() => {
       setMsgs((m) => [...m, { me: false, text: `Opa! Aqui em ${rider.spot} o vento tá firme. Cola aqui! 🤙` }]);
     }, 1200);
