@@ -28,9 +28,9 @@ export function Plataforma() {
 
   return (
     <section id="plataforma" className="relative bg-paper">
-      {/* Degradê de entrada — vem do escuro do Sobre pro claro */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32"
-        style={{ background: "linear-gradient(to bottom, rgba(13,13,13,0.12), transparent)" }} />
+ {/* Transição suave do Sobre */}
+<div className="pointer-events-none absolute inset-x-0 top-0 h-24"
+  style={{ background: "linear-gradient(to bottom, var(--paper-2), transparent)" }} />
 
       <div className="mx-auto max-w-[1400px] px-6 md:px-10 pt-28 md:pt-36">
         <div className="max-w-3xl">
