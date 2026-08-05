@@ -2,20 +2,6 @@ import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { SunShape, BirdsShape, KiteShape, WindStreaks, SeaWaves } from "./KiteDecor";
 
-/**
- * Hero claro e enxuto. Lição aprendida da versão anterior: elementos
- * decorativos NUNCA podem competir com o texto principal. Aqui, a regra
- * é simples e foi testada visualmente em mobile e desktop:
- *
- * - O bloco de texto ocupa uma coluna com largura máxima controlada
- *   (max-w-xl em mobile/tablet, mais largo em desktop) e fica sempre
- *   por cima (z-10), nunca tendo decoração desenhada sobre ele.
- * - A decoração (sol, pássaros, pipa, vento) vive só nos 25% mais à
- *   direita da tela em desktop, e é OCULTADA em telas pequenas (abaixo
- *   de md) onde não há espaço sobrando , evitando qualquer sobreposição.
- * - As ondas do mar ficam fixas na base, atrás do texto, com altura
- *   pequena o suficiente para nunca cruzar os botões.
- */
 export function Hero() {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
@@ -26,7 +12,6 @@ export function Hero() {
 
   return (
     <section ref={ref} id="top" className="relative min-h-[100vh] overflow-hidden bg-paper">
-      {/* Fundo: leve gradiente de céu, sempre presente, nunca depende de imagem */}
       <div
         aria-hidden
         className="absolute inset-0"
@@ -36,7 +21,6 @@ export function Hero() {
         }}
       />
 
-      {/* Ondas do mar, fixas na base, discretas, nunca cruzam o conteúdo */}
       <div
         aria-hidden
         className="absolute inset-x-0 bottom-0 h-20 md:h-28 opacity-70"
@@ -45,9 +29,6 @@ export function Hero() {
         <SeaWaves color="currentColor" className="h-full w-full" />
       </div>
 
-      {/* Pipa: visível em TODAS as telas, cai planando do alto ao abrir.
-          Mobile: centralizada abaixo dos botões.
-          Desktop: canto superior direito. */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute right-[20%] bottom-[12%] w-24 md:right-[3%] md:top-[26%] md:bottom-auto md:w-36 lg:w-44"
@@ -64,12 +45,7 @@ export function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* Decoração restante: sol, pássaros, vento, só em telas md+ */}
-      <motion.div
-        aria-hidden
-        style={sceneStyle}
-        className="hidden md:block pointer-events-none absolute inset-0"
-      >
+      <motion.div aria-hidden style={sceneStyle} className="hidden md:block pointer-events-none absolute inset-0">
         <motion.div
           className="absolute right-[6%] top-[10%] w-28 lg:w-36 text-ink/80"
           animate={reduce ? undefined : { scale: [1, 1.05, 1] }}
@@ -94,7 +70,6 @@ export function Hero() {
         </div>
       </motion.div>
 
-      {/* Conteúdo de texto , sempre por cima, sempre livre de decoração */}
       <div className="relative z-10 flex min-h-[100vh] flex-col">
         <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col justify-center px-6 md:px-10 pt-24 pb-16">
           <div className="max-w-xl lg:max-w-2xl">
@@ -152,6 +127,17 @@ export function Hero() {
                 className="group inline-flex items-center gap-3 border border-ink/25 text-ink px-7 md:px-9 py-4 md:py-5 text-[13px] uppercase tracking-[0.2em] font-semibold hover:bg-ink hover:text-paper transition-colors"
               >
                 Vender
+              </a>
+              <a
+                href="#comunidade"
+                className="group inline-flex items-center gap-2.5 px-2 py-4 md:py-5 text-[13px] uppercase tracking-[0.2em] font-semibold text-ink/70 hover:text-accent transition-colors"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#39e58c] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#39e58c]" />
+                </span>
+                Conhecer a WIU
+                <span className="inline-block transition-transform group-hover:translate-y-0.5">↓</span>
               </a>
             </motion.div>
           </div>
