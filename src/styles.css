@@ -3,9 +3,9 @@
 @import "tw-animate-css";
 
 @import "@fontsource/anton/400.css";
-@import "@fontsource/archivo/400.css";
-@import "@fontsource/archivo/600.css";
-@import "@fontsource/archivo/700.css";
+@import "@fontsource/fraunces/400.css";
+@import "@fontsource/fraunces/600.css";
+@import "@fontsource/fraunces/700.css";
 @import "@fontsource-variable/inter";
 @import "@fontsource/instrument-serif/400.css";
 @import "@fontsource/instrument-serif/400-italic.css";
@@ -41,10 +41,11 @@
   --color-input: color-mix(in srgb, var(--ink) 15%, transparent);
   --color-ring: var(--accent);
 
-  --font-display: "Anton", "Archivo", system-ui, sans-serif;
+  --font-display: "Fraunces", "Instrument Serif", Georgia, serif;
   --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
   --font-serif: "Instrument Serif", Georgia, serif;
-  --font-condensed: "Archivo", system-ui, sans-serif;
+  --font-poster: "Anton", "Fraunces", sans-serif;
+  --font-condensed: "Inter Variable", "Inter", system-ui, sans-serif;
 
   --radius-sm: 0;
   --radius-md: 0;
@@ -97,6 +98,13 @@
 
 @utility display {
   font-family: var(--font-display);
+  letter-spacing: -0.025em;
+  line-height: 0.95;
+  font-weight: 600;
+}
+
+@utility poster {
+  font-family: var(--font-poster);
   text-transform: uppercase;
   letter-spacing: -0.02em;
   line-height: 0.9;
@@ -185,8 +193,6 @@
   }
 }
 
-/* ============ Movimento e profundidade (v2) ============ */
-
 @keyframes float-y {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-18px); }
@@ -240,7 +246,6 @@
   will-change: opacity, transform;
 }
 
-/* Ondas fluindo como água real, translação horizontal contínua */
 @keyframes wave-flow {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -258,7 +263,6 @@
   will-change: transform;
 }
 
-/* Flutuação vertical "lunar", sutil, para elementos decorativos e seções inteiras */
 @keyframes float-gentle {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
@@ -268,7 +272,6 @@
   will-change: transform;
 }
 
-/* Respiração suave, escala quase imperceptível */
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.015); }
@@ -277,14 +280,6 @@
   animation: breathe 8s ease-in-out infinite;
   will-change: transform;
 }
-
-/* ============ Rajada de vento (gust) ============
-   Família de animações compartilhando a mesma "frequência" (8s), aplicada
-   a títulos, blocos e ícones pela página inteira. Usa pequenos delays
-   (gust-1..gust-5) pra simular o vento varrendo de elemento a elemento,
-   em vez de tudo balançando em sincronia robótica. Movimento sutil:
-   rotação de 1-2 graus e translação de poucos pixels, nada que pareça
-   "tremor" ou distraia da leitura. */
 
 @keyframes gust-tilt {
   0%, 100% { transform: rotate(0deg) translateX(0); }
@@ -311,7 +306,6 @@
 @utility gust-lift-3 { animation: gust-lift 8s ease-in-out infinite; animation-delay: 1s; will-change: transform; }
 @utility gust-lift-4 { animation: gust-lift 8s ease-in-out infinite; animation-delay: 1.5s; will-change: transform; }
 
-/* Ícones de card: leve "balanço de bandeira", rotação a partir do topo */
 @keyframes gust-flag {
   0%, 100% { transform: rotate(0deg); }
   40% { transform: rotate(-3deg); }
@@ -323,12 +317,10 @@
   will-change: transform;
 }
 
-/* Deep ambient shadow for 3D depth on sections */
 @utility section-depth {
   box-shadow: 0 -30px 60px -30px rgba(13, 13, 13, 0.12), 0 30px 60px -30px rgba(13, 13, 13, 0.12);
 }
 
-/* Card with stronger lift + colored glow on hover */
 @utility card-lift {
   box-shadow: 0 1px 2px rgba(13,13,13,0.04), 0 10px 30px rgba(13,13,13,0.07);
   transition: box-shadow 0.45s cubic-bezier(0.2,0.7,0.2,1), transform 0.45s cubic-bezier(0.2,0.7,0.2,1);
@@ -340,7 +332,6 @@
   }
 }
 
-/* Variante para cards sobre fundo escuro: glow claro em vez de sombra escura */
 @utility card-lift-dark {
   box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 36px rgba(0,0,0,0.35);
   transition: box-shadow 0.45s cubic-bezier(0.2,0.7,0.2,1), transform 0.45s cubic-bezier(0.2,0.7,0.2,1);
