@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "motion/react";
+import { motion, useInView, useReducedMotion } from "motion/react";
 
 function Counter({ to, suffix = "", duration = 1.6 }: { to: number; suffix?: string; duration?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -34,6 +34,7 @@ const STATS = [
 ];
 
 export function Stats() {
+  const reduce = useReducedMotion();
   return (
     <section className="relative bg-paper border-b border-ink/10 section-depth">
       <div className="mx-auto max-w-[1400px] px-6 md:px-10 py-16 md:py-20 grid grid-cols-1 sm:grid-cols-3 gap-10 md:gap-16">
@@ -46,12 +47,15 @@ export function Stats() {
             transition={{ duration: 0.6, delay: i * 0.1 }}
             className="text-center sm:text-left"
           >
-            <div
-              className="serif text-6xl md:text-8xl text-accent leading-none breathe"
-              style={{ textShadow: "0 4px 24px rgba(0,180,216,0.25)", animationDelay: `${i * 0.7}s` }}
+            {/* Flutuação contínua depois que o número chega — nunca fica parado */}
+            <motion.div
+              animate={reduce ? undefined : { y: [0, -10, 0] }}
+              transition={{ duration: 4.5 + i * 0.8, repeat: Infinity, ease: "easeInOut", delay: 1.8 + i * 0.5 }}
+              className="serif text-6xl md:text-8xl text-accent leading-none"
+              style={{ textShadow: "0 4px 24px rgba(0,180,216,0.25)" }}
             >
               <Counter to={it.n} suffix={it.s} />
-            </div>
+            </motion.div>
             <div className="mt-3 text-[13px] uppercase tracking-[0.24em] text-ink/60">{it.l}</div>
           </motion.div>
         ))}
