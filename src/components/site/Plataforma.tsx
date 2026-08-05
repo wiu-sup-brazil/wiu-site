@@ -32,15 +32,42 @@ export function Plataforma() {
 <div className="pointer-events-none absolute inset-x-0 top-0 h-24"
   style={{ background: "linear-gradient(to bottom, var(--paper-2), transparent)" }} />
 
-      <div className="mx-auto max-w-[1400px] px-6 md:px-10 pt-28 md:pt-36">
-        <div className="max-w-3xl">
+    <div className="mx-auto max-w-[1400px] px-6 md:px-10 pt-28 md:pt-36">
+        <div className="text-center">
           <div className="text-[13px] uppercase tracking-[0.24em] text-accent font-semibold">A plataforma</div>
-          <h2 className="display text-5xl md:text-7xl lg:text-8xl mt-4 gust-1">
-            Tudo num <span className="serif italic normal-case tracking-normal text-accent">lugar só</span>.
+
+          {/* Título split: "Tudo num" vem da esquerda, "lugar só." vem da direita */}
+          <h2 className="mt-6 md:mt-8 overflow-hidden">
+            <motion.span
+              className="display text-5xl sm:text-6xl md:text-8xl lg:text-9xl block md:inline-block"
+              initial={{ x: "-50%", opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1] }}
+            >
+              Tudo num{" "}
+            </motion.span>
+            <motion.span
+              className="display text-5xl sm:text-6xl md:text-8xl lg:text-9xl block md:inline-block"
+              initial={{ x: "50%", opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.9, delay: 0.1, ease: [0.2, 0.7, 0.2, 1] }}
+            >
+              <span className="serif italic normal-case tracking-normal text-accent">lugar</span>{" "}
+              só.
+            </motion.span>
           </h2>
-          <p className="mt-6 text-xl text-ink/70 leading-relaxed">
+
+          <motion.p
+            className="mt-6 text-xl text-ink/70 leading-relaxed mx-auto max-w-md"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
             Escolha por onde começar.
-          </p>
+          </motion.p>
         </div>
 
         {/* 3 cards — sem Trips */}
