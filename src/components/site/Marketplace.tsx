@@ -47,17 +47,49 @@ export function Marketplace() {
   return (
     <div id="marketplace" className="bg-paper-2 py-24 md:py-32">
       <div className="mx-auto max-w-[1400px] px-6 md:px-10">
-        <div className="max-w-3xl">
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-ink/50">
-            <span className="h-px w-10 bg-ink/30" /> Estoque real, atualizado hoje
+      <div className="text-center max-w-5xl mx-auto">
+          <div className="flex items-center justify-center gap-3 text-[11px] uppercase tracking-[0.3em] text-ink/50">
+            <span className="h-px w-10 bg-ink/30" /> Estoque real, atualizado hoje <span className="h-px w-10 bg-ink/30" />
           </div>
-          <h2 className="mt-6 display text-5xl md:text-7xl lg:text-8xl">
-            Equipamento <span className="serif italic normal-case tracking-normal">certo</span>,
-            <br />no preço justo.
+          <h2 className="mt-6 md:mt-8 overflow-hidden">
+            <motion.span
+              className="display text-5xl sm:text-6xl md:text-7xl lg:text-9xl block md:inline"
+              initial={{ x: "-40%", opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1] }}
+            >
+              Equipamento{" "}
+            </motion.span>
+            <motion.span
+              className="display text-5xl sm:text-6xl md:text-7xl lg:text-9xl block md:inline"
+              initial={{ x: "40%", opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.9, delay: 0.1, ease: [0.2, 0.7, 0.2, 1] }}
+            >
+              <span className="serif italic normal-case tracking-normal">certo</span>,
+            </motion.span>
+            <br />
+            <motion.span
+              className="display text-5xl sm:text-6xl md:text-7xl lg:text-9xl"
+              initial={{ y: 30, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: [0.2, 0.7, 0.2, 1] }}
+            >
+              no preço justo.
+            </motion.span>
           </h2>
-          <p className="mt-6 text-xl text-ink/70 leading-relaxed">
+          <motion.p
+            className="mt-6 text-xl text-ink/70 leading-relaxed mx-auto max-w-xl"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
             Todo item passa por laudo técnico escrito. Você vê o estado real antes de perguntar o preço.
-          </p>
+          </motion.p>
         </div>
 
         {/* Categorias com ícone */}
