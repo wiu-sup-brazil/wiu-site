@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Store, Compass, Shield, Users, ArrowRight } from "lucide-react";
+import { Store, Compass, Shield, ArrowRight } from "lucide-react";
 import { TABS, type TabKey } from "./shared";
 import { Marketplace } from "./Marketplace";
 import { Instrutores } from "./Instrutores";
 import { Laudo } from "./Laudo";
-import { Comunidade } from "./Comunidade";
 
-const ICONS = { store: Store, compass: Compass, shield: Shield, users: Users };
+const ICONS: Record<string, any> = { store: Store, compass: Compass, shield: Shield };
 
 export function Plataforma() {
   const [active, setActive] = useState<TabKey>("marketplace");
@@ -20,7 +19,7 @@ export function Plataforma() {
   useEffect(() => {
     const handler = (e: Event) => {
       const tab = (e as CustomEvent).detail as TabKey;
-      const valid = ["marketplace", "instrutores", "laudo", "comunidade"];
+      const valid = ["marketplace", "instrutores", "laudo"];
       if (valid.includes(tab)) go(tab);
     };
     window.addEventListener("select-tab", handler);
@@ -28,9 +27,12 @@ export function Plataforma() {
   }, []);
 
   return (
-    <section id="plataforma" className="bg-paper">
-      {/* Intro: tudo num lugar só */}
-      <div className="mx-auto max-w-[1400px] px-6 md:px-10 pt-24 md:pt-32">
+    <section id="plataforma" className="relative bg-paper">
+      {/* Degradê de entrada — vem do escuro do Sobre pro claro */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32"
+        style={{ background: "linear-gradient(to bottom, rgba(13,13,13,0.12), transparent)" }} />
+
+      <div className="mx-auto max-w-[1400px] px-6 md:px-10 pt-28 md:pt-36">
         <div className="max-w-3xl">
           <div className="text-[13px] uppercase tracking-[0.24em] text-accent font-semibold">A plataforma</div>
           <h2 className="display text-5xl md:text-7xl lg:text-8xl mt-4 gust-1">
@@ -41,74 +43,49 @@ export function Plataforma() {
           </p>
         </div>
 
-        {/* Service entry cards , carrossel horizontal com scroll-snap em todas as telas */}
-        <div className="mt-12 -mx-6 md:-mx-10">
-          <div className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory px-6 md:px-10 pb-2">
-            {TABS.map((t, i) => {
-              const Icon = ICONS[t.icon];
-              const on = t.key === active;
-              return (
-                <motion.button
-                  key={t.key}
-                  onClick={() => go(t.key)}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.15 }}
-                  transition={{ duration: 0.5, delay: i * 0.08 }}
-                  style={{ width: "min(78vw, 300px)", flex: "0 0 auto" }}
-                  className={`group snap-start text-left card-lift card-lift-hover bg-paper border-2 p-7 md:p-8 min-h-[260px] flex flex-col justify-between transition-colors ${
-                    on ? "border-accent" : "border-ink/10 hover:border-ink/30"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={`inline-flex h-14 w-14 items-center justify-center rounded-full transition-colors gust-${(i % 5) + 1}`}
-                      style={{ transformOrigin: "center" }}
-                    >
-                      <div
-                        className={`flex h-full w-full items-center justify-center rounded-full transition-colors ${
-                          on ? "bg-accent text-paper" : "bg-accent/10 text-accent group-hover:bg-accent group-hover:text-paper"
-                        }`}
-                      >
-                        <Icon className="h-6 w-6 stroke-[1.5]" />
-                      </div>
-                    </div>
-                    <span className="text-[12px] uppercase tracking-[0.3em] text-ink/30">{t.index}</span>
-                  </div>
-                  <div>
-                    <h3 className="display text-2xl md:text-3xl">{t.label}</h3>
-                    <p className="mt-2 text-[15px] text-ink/60">{t.tagline}</p>
-                    <span
-                      className={`mt-5 inline-flex items-center justify-center gap-2 w-full py-3.5 text-[12px] uppercase tracking-[0.2em] font-semibold transition-colors ${
-                        on ? "bg-accent text-paper" : "bg-ink text-paper group-hover:bg-accent"
-                      }`}
-                    >
-                      Abrir <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                    </span>
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-
-          {/* Indicador de scroll (pontinhos), só decorativo */}
-          <div className="mt-5 flex items-center gap-2 px-1">
-            {TABS.map((t) => (
-              <span
+        {/* 3 cards — sem Trips */}
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {TABS.map((t, i) => {
+            const Icon = ICONS[t.icon];
+            const on = t.key === active;
+            return (
+              <motion.button
                 key={t.key}
-                className={`h-1.5 rounded-full transition-all ${
-                  t.key === active ? "w-6 bg-accent" : "w-1.5 bg-ink/15"
+                onClick={() => go(t.key)}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={{ duration: 0.5, delay: i * 0.08 }}
+                className={`group text-left card-lift card-lift-hover bg-paper border-2 p-7 md:p-8 flex flex-col justify-between min-h-[260px] transition-colors ${
+                  on ? "border-accent" : "border-ink/10 hover:border-ink/30"
                 }`}
-              />
-            ))}
-            <span className="ml-3 text-[11px] uppercase tracking-[0.2em] text-ink/35 hidden sm:inline">
-              Arraste para o lado →
-            </span>
-          </div>
+              >
+                <div className="flex items-center justify-between">
+                  <div className={`inline-flex h-14 w-14 items-center justify-center rounded-full transition-colors gust-${(i % 5) + 1}`}>
+                    <div className={`flex h-full w-full items-center justify-center rounded-full transition-colors ${
+                      on ? "bg-accent text-paper" : "bg-accent/10 text-accent group-hover:bg-accent group-hover:text-paper"
+                    }`}>
+                      <Icon className="h-6 w-6 stroke-[1.5]" />
+                    </div>
+                  </div>
+                  <span className="text-[12px] uppercase tracking-[0.3em] text-ink/30">{t.index}</span>
+                </div>
+                <div>
+                  <h3 className="display text-2xl md:text-3xl">{t.label}</h3>
+                  <p className="mt-2 text-[15px] text-ink/60">{t.tagline}</p>
+                  <span className={`mt-5 inline-flex items-center justify-center gap-2 w-full py-3.5 text-[12px] uppercase tracking-[0.2em] font-semibold transition-colors ${
+                    on ? "bg-accent text-paper" : "bg-ink text-paper group-hover:bg-accent"
+                  }`}>
+                    Abrir <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Painel ativo, com barra de abas tipo segmented control */}
+      {/* Painel ativo */}
       <div id="painel" className="mt-20 scroll-mt-24">
         <div className="sticky top-16 md:top-20 z-40 bg-paper/90 backdrop-blur-md border-y border-ink/10 tabs-depth">
           <div className="mx-auto max-w-[1400px] px-6 md:px-10 py-3">
@@ -144,7 +121,6 @@ export function Plataforma() {
             {active === "marketplace" && <Marketplace />}
             {active === "instrutores" && <Instrutores />}
             {active === "laudo" && <Laudo />}
-            {active === "comunidade" && <Comunidade />}
           </motion.div>
         </AnimatePresence>
       </div>
