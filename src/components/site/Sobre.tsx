@@ -52,9 +52,9 @@ export function Sobre() {
         <WaveLines color="var(--accent)" className="w-full h-24" />
       </div>
 
-      {/* Degradê escuro no rodapé da seção — transição suave pro próximo bloco */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48"
-        style={{ background: "linear-gradient(to bottom, transparent, rgba(13,13,13,0.06) 60%, rgba(13,13,13,0.14))" }} />
+    {/* Transição suave pro próximo bloco */}
+<div className="pointer-events-none absolute inset-x-0 bottom-0 h-40"
+  style={{ background: "linear-gradient(to bottom, transparent, var(--paper-2))" }} />
 
       <div className="mx-auto max-w-[1400px] px-6 md:px-10">
         <div className="grid md:grid-cols-12 gap-10 md:gap-16">
