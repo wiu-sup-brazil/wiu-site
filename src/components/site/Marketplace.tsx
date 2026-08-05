@@ -47,11 +47,11 @@ export function Marketplace() {
   return (
     <div id="marketplace" className="bg-paper-2 py-24 md:py-32">
       <div className="mx-auto max-w-[1400px] px-6 md:px-10">
-      <div className="text-center max-w-5xl mx-auto">
+        <div className="text-center max-w-5xl mx-auto">
           <div className="flex items-center justify-center gap-3 text-[11px] uppercase tracking-[0.3em] text-ink/50">
             <span className="h-px w-10 bg-ink/30" /> Estoque real, atualizado hoje <span className="h-px w-10 bg-ink/30" />
           </div>
-       <h2 className="mt-6 md:mt-8 overflow-visible">
+          <h2 className="mt-6 md:mt-8 overflow-visible">
             <motion.span
               className="display text-4xl sm:text-5xl md:text-7xl lg:text-8xl block"
               initial={{ x: "-40%", opacity: 0 }}
@@ -133,6 +133,26 @@ export function Marketplace() {
                       <div className="absolute top-0 left-0 bg-paper px-3 py-2">
                         <CategoryIcon category={p.category} className="h-5 w-5 text-ink" />
                       </div>
+
+                      {/* Selo de avaliação — sobreposto no canto superior direito */}
+                      {p.eval_type === "presencial" ? (
+                        <span
+                          className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] font-semibold bg-paper/90 backdrop-blur-sm"
+                          style={{ border: "1px solid rgba(250,201,60,0.7)", color: "#b8860b" }}
+                        >
+                          <Award className="h-3 w-3" />
+                          Premium
+                        </span>
+                      ) : (
+                        <span
+                          className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] font-semibold bg-paper/90 backdrop-blur-sm"
+                          style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
+                        >
+                          <Video className="h-3 w-3" />
+                          Padrão
+                        </span>
+                      )}
+
                       {p.size && (
                         <div className="absolute bottom-0 right-0 bg-paper px-3 py-1.5 serif text-lg leading-none">{p.size}</div>
                       )}
@@ -146,25 +166,6 @@ export function Marketplace() {
                         <h3 className="mt-1.5 text-[17px] font-semibold leading-tight text-ink">
                           {p.model || p.name}
                         </h3>
-                  <div className="mt-2.5">
-                        {p.eval_type === "presencial" ? (
-                          <span
-                            className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold"
-                            style={{ border: "1px solid rgba(250,201,60,0.6)", color: "#b8860b" }}
-                          >
-                            <Award className="h-3.5 w-3.5" />
-                            Premium · Presencial
-                          </span>
-                        ) : (
-                          <span
-                            className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold"
-                            style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
-                          >
-                            <Video className="h-3.5 w-3.5" />
-                            Padrão · Obrigatório
-                          </span>
-                        )}
-                      </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-[10px] uppercase tracking-[0.2em] text-ink/45">R$</div>
@@ -232,6 +233,27 @@ function ProductSheet({ p, onClose }: { p: any; onClose: () => void }) {
           <h2 className="mt-4 display text-4xl md:text-5xl leading-[0.95]">{p.model || p.name}</h2>
           <div className="mt-3 text-lg text-ink/60">
             {[p.brand, p.year, p.size].filter(Boolean).join(" · ")}
+          </div>
+
+          {/* Selo de avaliação — na ficha do produto */}
+          <div className="mt-4">
+            {p.eval_type === "presencial" ? (
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold"
+                style={{ border: "1px solid rgba(250,201,60,0.6)", color: "#b8860b" }}
+              >
+                <Award className="h-3.5 w-3.5" />
+                Premium · Presencial
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold"
+                style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
+              >
+                <Video className="h-3.5 w-3.5" />
+                Padrão · Obrigatório
+              </span>
+            )}
           </div>
 
           <div className="mt-8 aspect-[4/3] overflow-hidden bg-ink/5">
