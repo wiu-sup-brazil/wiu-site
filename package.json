@@ -14,8 +14,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "@fontsource-variable/inter": "^5.2.8",
-    "@fontsource/anton": "^5.2.7",
-    "@fontsource/archivo": "^5.2.8",
     "@fontsource/instrument-serif": "^5.2.8",
     "@fontsource/syne": "^5.2.7",
     "@fontsource/fraunces": "^5.2.7",
