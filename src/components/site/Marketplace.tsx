@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, ShieldCheck, Loader2, ArrowRight } from "lucide-react";
+import { X, ShieldCheck, Loader2, ArrowRight, Award, Video } from "lucide-react";
 import { IMG } from "./shared";
 import { CategoryIcon } from "./CategoryIcons";
 import { useProducts } from "@/hooks/use-products";
