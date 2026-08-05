@@ -1,145 +1,259 @@
-import { useMemo, useState } from "react";
-import { motion } from "motion/react";
-import { Heart, Star, BadgeCheck, Loader2 } from "lucide-react";
-import { TiltCard } from "./TiltCard";
+import { useMemo, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { X, ShieldCheck, Loader2, ArrowRight } from "lucide-react";
 import { IMG } from "./shared";
+import { CategoryIcon } from "./CategoryIcons";
 import { useProducts } from "@/hooks/use-products";
 
-type Cat = "Todos" | "Pranchas" | "Kites" | "Barras" | "Trapézios" | "Acessórios";
-type Price = "Todos" | "ate1k" | "1k3k" | "3kplus";
+const WHATSAPP = "5585998477678";
 
-const CAT_MAP: Record<string, Exclude<Cat, "Todos">> = {
-  Kite: "Kites", Prancha: "Pranchas", Barra: "Barras",
-  "Trapézio": "Trapézios", "Acessório": "Acessórios", Wing: "Kites", Foil: "Pranchas",
+type Cat = "Todos" | "Kites" | "Pranchas" | "Barras" | "Trapézios" | "Acessórios";
+const CAT_MAP: Record<string, Cat> = {
+  Kite: "Kites", Prancha: "Pranchas", Barra: "Barras", "Trapézio": "Trapézios",
+  "Acessório": "Acessórios", Bomba: "Acessórios", Colete: "Acessórios",
+  Capacete: "Acessórios", Wing: "Kites", Foil: "Pranchas", "Kit Completo": "Kites",
+};
+const CATS: Cat[] = ["Todos", "Kites", "Pranchas", "Barras", "Trapézios", "Acessórios"];
+const CAT_ICON: Record<Cat, string> = {
+  Todos: "Todos", Kites: "Kite", Pranchas: "Prancha",
+  Barras: "Barra", "Trapézios": "Trapézio", "Acessórios": "Acessório",
+};
+const FALLBACK: Record<string, string> = {
+  Kite: IMG.kite, Prancha: IMG.board, Barra: IMG.gear, "Trapézio": IMG.gear,
+  "Acessório": IMG.beach, Wing: IMG.action, Foil: IMG.board,
 };
 
-const CATS: Cat[] = ["Todos", "Pranchas", "Kites", "Barras", "Trapézios", "Acessórios"];
-const PRICES: { v: Price; l: string }[] = [
-  { v: "Todos", l: "Todos os preços" },
-  { v: "ate1k", l: "Até R$ 1.000" },
-  { v: "1k3k", l: "R$ 1.000 a 3.000" },
-  { v: "3kplus", l: "R$ 3.000 ou mais" },
-];
-
-const FALLBACK_IMG: Record<string, string> = {
-  Kite: IMG.kite, Prancha: IMG.board, Barra: IMG.gear,
-  "Trapézio": IMG.gear, "Acessório": IMG.beach, Wing: IMG.action, Foil: IMG.board,
-};
+const brl = (n: number) => n.toLocaleString("pt-BR");
 
 export function Marketplace() {
   const { data: products = [], isLoading } = useProducts();
   const [cat, setCat] = useState<Cat>("Todos");
-  const [price, setPrice] = useState<Price>("Todos");
+  const [open, setOpen] = useState<any | null>(null);
 
-  const filtered = useMemo(() => {
-    return products.filter((p: any) => {
-      const pCat = CAT_MAP[p.category] || "Acessórios";
-      const preco = p.asking_price || 0;
-      if (cat !== "Todos" && pCat !== cat) return false;
-      if (price === "ate1k" && preco > 1000) return false;
-      if (price === "1k3k" && (preco < 1000 || preco > 3000)) return false;
-      if (price === "3kplus" && preco < 3000) return false;
-      return true;
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { Todos: products.length };
+    products.forEach((p: any) => {
+      const k = CAT_MAP[p.category] || "Acessórios";
+      c[k] = (c[k] || 0) + 1;
     });
-  }, [products, cat, price]);
+    return c;
+  }, [products]);
+
+  const filtered = useMemo(
+    () => products.filter((p: any) => cat === "Todos" || (CAT_MAP[p.category] || "Acessórios") === cat),
+    [products, cat]
+  );
 
   return (
     <div id="marketplace" className="bg-paper-2 py-24 md:py-32">
       <div className="mx-auto max-w-[1400px] px-6 md:px-10">
         <div className="max-w-3xl">
-          <h2 className="display text-5xl md:text-7xl lg:text-8xl gust-3">
-            Equipamento <span className="serif italic normal-case tracking-normal">certo</span>, no preço justo.
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-ink/50">
+            <span className="h-px w-10 bg-ink/30" /> Estoque real, atualizado hoje
+          </div>
+          <h2 className="mt-6 display text-5xl md:text-7xl lg:text-8xl">
+            Equipamento <span className="serif italic normal-case tracking-normal">certo</span>,
+            <br />no preço justo.
           </h2>
-          <p className="mt-6 text-xl text-ink/70 leading-relaxed">Com laudo técnico. Avaliado por quem entende.</p>
+          <p className="mt-6 text-xl text-ink/70 leading-relaxed">
+            Todo item passa por laudo técnico escrito. Você vê o estado real antes de perguntar o preço.
+          </p>
         </div>
 
-        <div className="mt-14 border-y border-ink/20 py-6 flex flex-wrap items-center gap-x-8 gap-y-5">
-          <FilterGroup label="Categoria" options={CATS} value={cat} onChange={setCat} />
-          <span className="h-6 w-px bg-ink/15 hidden md:block" />
-          <FilterGroup label="Preço" options={PRICES.map((p) => p.v) as Price[]} labels={Object.fromEntries(PRICES.map((p) => [p.v, p.l]))} value={price} onChange={setPrice} />
-          <div className="ml-auto text-[13px] uppercase tracking-[0.22em] text-ink/55">
-            {isLoading ? "Carregando..." : `${filtered.length} ${filtered.length === 1 ? "item" : "itens"}`}
-          </div>
+        {/* Categorias com ícone */}
+        <div className="mt-16 grid grid-cols-3 md:grid-cols-6 gap-3">
+          {CATS.map((c) => {
+            const active = c === cat;
+            const n = counts[c] || 0;
+            return (
+              <button
+                key={c}
+                onClick={() => setCat(c)}
+                className={`group relative flex flex-col items-center justify-center gap-3 border py-7 px-2 transition-all duration-300 ${
+                  active ? "border-ink bg-ink text-paper" : "border-ink/15 text-ink hover:border-ink/60 hover:-translate-y-0.5"
+                }`}
+              >
+                <CategoryIcon category={CAT_ICON[c]} className="h-8 w-8 transition-transform duration-300 group-hover:scale-110" />
+                <span className="text-[11px] uppercase tracking-[0.18em] font-semibold">{c}</span>
+                <span className={`absolute top-2.5 right-3 text-[10px] tabular-nums ${active ? "text-paper/50" : "text-ink/35"}`}>{n}</span>
+              </button>
+            );
+          })}
         </div>
 
         {isLoading && (
-          <div className="mt-16 flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-ink/30" />
-          </div>
+          <div className="mt-20 flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-ink/25" /></div>
         )}
 
+        {/* Grid de produtos */}
         {!isLoading && (
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7" style={{ perspective: 1000 }}>
-            {filtered.map((p: any, i: number) => {
-              const img = (p.photos && p.photos[0]) || FALLBACK_IMG[p.category] || IMG.gear;
-              const preco = p.asking_price || 0;
-              return (
-                <motion.div key={p.id} layout initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: 0.5, delay: (i % 4) * 0.06 }}>
-                  <TiltCard className="group bg-paper h-full flex flex-col overflow-hidden card-lift card-lift-hover">
-                    <div className="flex items-center gap-2.5 px-4 py-3 border-b border-ink/8">
-                      <div className="h-8 w-8 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-semibold shrink-0">W</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold text-ink truncate">Wind Is Up</div>
-                        <div className="text-[11px] text-ink/45">publicou no marketplace</div>
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-7 gap-y-14">
+            <AnimatePresence mode="popLayout">
+              {filtered.map((p: any, i: number) => {
+                const img = p.photos?.[0] || FALLBACK[p.category] || IMG.gear;
+                return (
+                  <motion.button
+                    key={p.id}
+                    layout
+                    onClick={() => setOpen(p)}
+                    initial={{ opacity: 0, y: 24 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.45, delay: (i % 4) * 0.05 }}
+                    className="group text-left"
+                  >
+                    <div className="relative aspect-[4/5] overflow-hidden bg-ink/5">
+                      <img src={img} alt={p.name} loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.06]" />
+                      <div className="absolute inset-0 bg-ink/0 transition-colors duration-500 group-hover:bg-ink/10" />
+                      <div className="absolute top-0 left-0 bg-paper px-3 py-2">
+                        <CategoryIcon category={p.category} className="h-5 w-5 text-ink" />
                       </div>
-                      <button aria-label="Favoritar" className="h-8 w-8 flex items-center justify-center text-ink/40 hover:text-accent transition-colors shrink-0">
-                        <Heart className="h-4 w-4 stroke-[1.6]" />
-                      </button>
+                      {p.size && (
+                        <div className="absolute bottom-0 right-0 bg-paper px-3 py-1.5 serif text-lg leading-none">{p.size}</div>
+                      )}
                     </div>
-                    <div className="aspect-[4/3] relative overflow-hidden">
-                      <img src={img} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-[filter,transform] duration-500 group-hover:scale-105" style={{ filter: "saturate(1.08)" }} />
-                      <div className="absolute top-3 left-3 border border-ink/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] bg-paper/85 backdrop-blur-sm font-semibold">{p.condition || "Usado"}</div>
-                    </div>
-                    <div className="p-5 flex flex-col flex-1">
-                      <div className="text-[11px] uppercase tracking-[0.22em] text-ink/55">{p.category}</div>
-                      <p className="mt-1.5 text-[15px] leading-snug text-ink">
-                        <span className="font-semibold">{p.name}</span>
-                        {p.year && <span className="text-ink/50"> ({p.year})</span>}
-                      </p>
-                      <div className="mt-3 inline-flex items-center gap-1.5 text-accent border border-accent px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] font-semibold self-start">
-                        <BadgeCheck className="h-3.5 w-3.5" /> Avaliado pela WIU
-                      </div>
-                      <div className="mt-auto pt-5 flex items-end justify-between">
-                        <div>
-                          <div className="text-[10px] uppercase tracking-[0.22em] text-ink/50">R$</div>
-                          <div className="serif text-4xl text-ink leading-none">{preco.toLocaleString("pt-BR")}</div>
+
+                    <div className="mt-5 flex items-start justify-between gap-4 border-t border-ink/15 pt-4">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-ink/45">
+                          {p.brand || p.category}{p.year ? ` · ${p.year}` : ""}
+                        </div>
+                        <h3 className="mt-1.5 text-[17px] font-semibold leading-tight text-ink">
+                          {p.model || p.name}
+                        </h3>
+                        <div className="mt-2.5 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-ink/55">
+                          <ShieldCheck className="h-3.5 w-3.5" /> {p.condition || "Avaliado"}
                         </div>
                       </div>
-                      <a href={`https://wa.me/5585998477678?text=${encodeURIComponent(`Oi! Vi o ${p.name} (${p.code}) no site e quero saber mais.`)}`} target="_blank" rel="noopener noreferrer" className="mt-5 w-full bg-ink text-paper py-3.5 text-[12px] uppercase tracking-[0.2em] font-semibold hover:bg-accent transition-colors text-center block">
-                        Consultar
-                      </a>
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-ink/45">R$</div>
+                        <div className="serif text-3xl leading-none text-ink">{brl(p.asking_price || 0)}</div>
+                      </div>
                     </div>
-                  </TiltCard>
-                </motion.div>
-              );
-            })}
+
+                    <div className="mt-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-ink/50 transition-colors group-hover:text-accent">
+                      Ver laudo <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </AnimatePresence>
           </div>
         )}
 
         {!isLoading && filtered.length === 0 && (
-          <div className="mt-16 border border-dashed border-ink/30 p-16 text-center text-ink/55 text-lg">
-            {products.length === 0 ? "Nenhum equipamento publicado ainda. Em breve!" : "Nenhum equipamento bate com esses filtros. Solta um pouco a vela."}
+          <div className="mt-16 border border-dashed border-ink/25 p-20 text-center">
+            <CategoryIcon category={CAT_ICON[cat]} className="h-10 w-10 mx-auto text-ink/25" />
+            <p className="mt-5 text-ink/55 text-lg">
+              {products.length === 0 ? "Estoque sendo carregado. Volta já já." : `Nenhum item em ${cat} agora.`}
+            </p>
           </div>
         )}
       </div>
+
+      <AnimatePresence>{open && <ProductSheet p={open} onClose={() => setOpen(null)} />}</AnimatePresence>
     </div>
   );
 }
 
-function FilterGroup<T extends string>({ label, options, value, onChange, labels }: { label: string; options: T[]; value: T; onChange: (v: T) => void; labels?: Record<string, string> }) {
+function ProductSheet({ p, onClose }: { p: any; onClose: () => void }) {
+  const [img, setImg] = useState(p.photos?.[0] || FALLBACK[p.category] || IMG.gear);
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", esc);
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", esc); document.body.style.overflow = ""; };
+  }, [onClose]);
+
+  const msg = encodeURIComponent(`Oi! Vi o ${p.name} (${p.code}) no site da WIU e quero saber mais.`);
+
   return (
-    <div className="flex items-center gap-3 flex-wrap">
-      <span className="text-[11px] uppercase tracking-[0.3em] text-ink/50">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {options.map((o) => {
-          const active = o === value;
-          return (
-            <button key={o} onClick={() => onChange(o)} className={`px-3.5 py-2 text-[11px] uppercase tracking-[0.18em] border transition-colors ${active ? "bg-ink text-paper border-ink" : "border-ink/25 text-ink/75 hover:border-ink hover:text-ink"}`}>
-              {labels?.[o] ?? o}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <motion.div className="fixed inset-0 z-[100] flex justify-end"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 bg-ink/50 backdrop-blur-[3px]" onClick={onClose} />
+      <motion.aside
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 32, stiffness: 260 }}
+        className="relative h-full w-full max-w-[560px] overflow-y-auto bg-paper"
+      >
+        <button onClick={onClose}
+          className="sticky top-0 z-10 ml-auto mr-5 mt-5 flex h-10 w-10 items-center justify-center border border-ink/20 bg-paper hover:bg-ink hover:text-paper transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="px-8 pb-16 -mt-10">
+          <div className="flex items-center gap-2.5 text-[10px] uppercase tracking-[0.24em] text-ink/45">
+            <CategoryIcon category={p.category} className="h-4 w-4" />
+            {p.category} · {p.code}
+          </div>
+
+          <h2 className="mt-4 display text-4xl md:text-5xl leading-[0.95]">{p.model || p.name}</h2>
+          <div className="mt-3 text-lg text-ink/60">
+            {[p.brand, p.year, p.size].filter(Boolean).join(" · ")}
+          </div>
+
+          <div className="mt-8 aspect-[4/3] overflow-hidden bg-ink/5">
+            <img src={img} alt={p.name} className="h-full w-full object-cover" />
+          </div>
+          {p.photos?.length > 1 && (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {p.photos.map((ph: string, i: number) => (
+                <button key={i} onClick={() => setImg(ph)}
+                  className={`h-16 w-20 shrink-0 overflow-hidden border-2 transition ${img === ph ? "border-ink" : "border-transparent opacity-60 hover:opacity-100"}`}>
+                  <img src={ph} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-10 flex items-end justify-between border-y border-ink/15 py-6">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-ink/45">Preço</div>
+              <div className="mt-1 serif text-5xl leading-none">R$ {brl(p.asking_price || 0)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-ink/45">Estado</div>
+              <div className="mt-1.5 text-sm font-semibold">{p.condition || "Avaliado"}</div>
+            </div>
+          </div>
+
+          {p.raio_x && (
+            <section className="mt-10">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="h-4 w-4 text-accent" />
+                <h3 className="text-[11px] uppercase tracking-[0.24em] font-semibold">Laudo técnico</h3>
+              </div>
+              <p className="mt-4 border-l-2 border-accent pl-5 text-[15px] leading-relaxed text-ink/80 whitespace-pre-wrap">
+                {p.raio_x}
+              </p>
+              <p className="mt-4 text-xs text-ink/45 leading-relaxed">
+                Escrito pela equipe da WIU depois de inspecionar o item. Nada de avaria escondida.
+              </p>
+            </section>
+          )}
+
+          {p.accessories?.length > 0 && (
+            <section className="mt-10">
+              <h3 className="text-[11px] uppercase tracking-[0.24em] font-semibold text-ink/60">Vai junto</h3>
+              <ul className="mt-4 space-y-2.5">
+                {p.accessories.map((a: string, i: number) => (
+                  <li key={i} className="flex items-center gap-3 text-[15px] text-ink/80">
+                    <span className="h-1 w-1 rounded-full bg-accent" /> {a}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <a href={`https://wa.me/${WHATSAPP}?text=${msg}`} target="_blank" rel="noopener noreferrer"
+            className="mt-12 flex w-full items-center justify-center gap-3 bg-ink py-5 text-[12px] uppercase tracking-[0.22em] font-semibold text-paper transition-colors hover:bg-accent">
+            Falar sobre este item <ArrowRight className="h-4 w-4" />
+          </a>
+          <p className="mt-4 text-center text-xs text-ink/45">Resposta no WhatsApp, direto com a equipe.</p>
+        </div>
+      </motion.aside>
+    </motion.div>
   );
 }
