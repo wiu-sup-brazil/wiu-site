@@ -18,6 +18,7 @@
     "@fontsource/archivo": "^5.2.8",
     "@fontsource/instrument-serif": "^5.2.8",
     "@fontsource/syne": "^5.2.7",
+    "@fontsource/fraunces": "^5.2.7",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
