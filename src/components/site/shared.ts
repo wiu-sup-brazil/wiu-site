@@ -21,7 +21,6 @@ export const TABS: {
   { key: "marketplace", label: "Marketplace", index: "01", tagline: "Compre e venda kites", icon: "store" },
   { key: "instrutores", label: "Instrutores", index: "02", tagline: "Aulas com quem voa", icon: "compass" },
   { key: "laudo", label: "Laudo", index: "03", tagline: "Estado real do kite", icon: "shield" },
-  { key: "comunidade", label: "Trips", index: "04", tagline: "Navegue com a galera", icon: "users" },
 ];
 
 // Real photography (Unsplash) used in grayscale across the site.
