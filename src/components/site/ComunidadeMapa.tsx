@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarClock } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarClock, Navigation2 } from "lucide-react";
 
 /**
- * Mapa da comunidade v2 — pan/zoom, medidores de vento por spot,
- * chat mobile em tela cheia e grupos de velejo com RSVP.
+ * Mapa da comunidade v3 — litoral do vento completo (Fortaleza → Lençóis
+ * Maranhenses), card de spot branco com bússolas de direção do vento.
  *
  * DEMO_RIDERS / SPOT_WIND / DEMO_GROUPS são dados de demonstração (front
  * only). Quando o backend existir (Supabase Realtime), troque pelos canais
@@ -15,37 +15,53 @@ import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarCl
 type Rider = { id: string; name: string; spot: string; x: number; y: number; level: string };
 
 const DEMO_RIDERS: Rider[] = [
-  { id: "r1", name: "Léo", spot: "Cumbuco", x: 63, y: 62, level: "Avançado" },
-  { id: "r2", name: "Marina", spot: "Cumbuco", x: 66, y: 58, level: "Intermediário" },
-  { id: "r3", name: "Pedrão", spot: "Taíba", x: 55, y: 52, level: "Avançado" },
-  { id: "r4", name: "Ana", spot: "Paracuru", x: 47, y: 44, level: "Iniciante" },
-  { id: "r5", name: "Thibaut", spot: "Preá", x: 22, y: 26, level: "Avançado" },
-  { id: "r6", name: "Sofia", spot: "Jericoacoara", x: 14, y: 20, level: "Intermediário" },
-  { id: "r7", name: "Rafa", spot: "Icaraí", x: 68, y: 66, level: "Intermediário" },
-  { id: "r8", name: "Duda", spot: "Flecheiras", x: 38, y: 36, level: "Avançado" },
+  { id: "r1", name: "Léo", spot: "Cumbuco", x: 72, y: 44, level: "Avançado" },
+  { id: "r2", name: "Marina", spot: "Cumbuco", x: 74.5, y: 40, level: "Intermediário" },
+  { id: "r3", name: "Pedrão", spot: "Taíba", x: 65, y: 38, level: "Avançado" },
+  { id: "r4", name: "Ana", spot: "Paracuru", x: 59, y: 34, level: "Iniciante" },
+  { id: "r5", name: "Duda", spot: "Flecheiras", x: 53, y: 30, level: "Avançado" },
+  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 44, y: 26, level: "Intermediário" },
+  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 38, y: 24, level: "Avançado" },
+  { id: "r8", name: "Thibaut", spot: "Preá", x: 33, y: 21.5, level: "Avançado" },
+  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 28.5, y: 19.5, level: "Intermediário" },
+  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 18, y: 19, level: "Intermediário" },
+  { id: "r11", name: "Bia", spot: "Atins", x: 11, y: 17, level: "Avançado" },
 ];
 
+/** Rota do vento: Fortaleza → Lençóis Maranhenses. */
 const SPOTS = [
-  { name: "Fortaleza", x: 78, y: 74 },
-  { name: "Icaraí", x: 68, y: 67 },
-  { name: "Cumbuco", x: 63, y: 61 },
-  { name: "Taíba", x: 54, y: 51 },
-  { name: "Paracuru", x: 46, y: 43 },
-  { name: "Flecheiras", x: 37, y: 35 },
-  { name: "Preá", x: 21, y: 25 },
-  { name: "Jericoacoara", x: 13, y: 19 },
+  { name: "Lençóis", x: 5, y: 25 },
+  { name: "Atins", x: 11, y: 24.5 },
+  { name: "Barra Grande", x: 18, y: 25.5 },
+  { name: "Tatajuba", x: 23.5, y: 27 },
+  { name: "Jericoacoara", x: 28.5, y: 28 },
+  { name: "Preá", x: 33, y: 29.5 },
+  { name: "Ilha do Guajiru", x: 38.5, y: 31.5 },
+  { name: "Icaraizinho", x: 44, y: 34 },
+  { name: "Mundaú", x: 49, y: 36.5 },
+  { name: "Flecheiras", x: 53.5, y: 38.5 },
+  { name: "Paracuru", x: 59, y: 42 },
+  { name: "Taíba", x: 65, y: 46.5 },
+  { name: "Cumbuco", x: 72, y: 51 },
+  { name: "Fortaleza", x: 80, y: 55.5 },
 ];
 
-/** Leitura de vento por spot (nós). DEMO — trocar por fonte real depois. */
-const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string }> = {
-  Fortaleza: { avg: 18, gust: 23, dir: "SSE" },
-  Icaraí: { avg: 20, gust: 25, dir: "E" },
-  Cumbuco: { avg: 22, gust: 27, dir: "E" },
-  Taíba: { avg: 23, gust: 29, dir: "ESE" },
-  Paracuru: { avg: 21, gust: 26, dir: "E" },
-  Flecheiras: { avg: 20, gust: 24, dir: "ENE" },
-  Preá: { avg: 26, gust: 32, dir: "E" },
-  Jericoacoara: { avg: 24, gust: 30, dir: "E" },
+/** Leitura de vento por spot (nós + direção em graus). DEMO. */
+const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: number }> = {
+  "Fortaleza": { avg: 18, gust: 23, dir: "SSE", deg: 157 },
+  "Cumbuco": { avg: 22, gust: 27, dir: "E", deg: 90 },
+  "Taíba": { avg: 23, gust: 29, dir: "ESE", deg: 112 },
+  "Paracuru": { avg: 21, gust: 26, dir: "E", deg: 90 },
+  "Flecheiras": { avg: 20, gust: 24, dir: "ENE", deg: 67 },
+  "Mundaú": { avg: 21, gust: 25, dir: "E", deg: 90 },
+  "Icaraizinho": { avg: 24, gust: 29, dir: "E", deg: 90 },
+  "Ilha do Guajiru": { avg: 25, gust: 30, dir: "E", deg: 90 },
+  "Preá": { avg: 26, gust: 32, dir: "E", deg: 90 },
+  "Jericoacoara": { avg: 24, gust: 30, dir: "E", deg: 90 },
+  "Tatajuba": { avg: 25, gust: 31, dir: "E", deg: 90 },
+  "Barra Grande": { avg: 24, gust: 29, dir: "ENE", deg: 67 },
+  "Atins": { avg: 26, gust: 33, dir: "ENE", deg: 67 },
+  "Lençóis": { avg: 25, gust: 32, dir: "ENE", deg: 67 },
 };
 
 type Grupo = { id: string; spot: string; rota: string; horario: string; dia: string; confirmados: string[] };
@@ -53,11 +69,11 @@ type Grupo = { id: string; spot: string; rota: string; horario: string; dia: str
 const DEMO_GROUPS: Grupo[] = [
   { id: "g1", spot: "Cumbuco", rota: "Cumbuco → Taíba", horario: "12h – 15h", dia: "Hoje", confirmados: ["Léo", "Marina", "Rafa", "Pedrão"] },
   { id: "g2", spot: "Preá", rota: "Preá → Jericoacoara", horario: "9h – 12h", dia: "Amanhã", confirmados: ["Thibaut", "Sofia"] },
-  { id: "g3", spot: "Paracuru", rota: "Downwind Paracuru → Lagoinha", horario: "13h30 – 17h", dia: "Sábado", confirmados: ["Ana", "Duda", "Léo"] },
+  { id: "g3", spot: "Ilha do Guajiru", rota: "Downwind Guajiru → Tatajuba", horario: "13h30 – 17h", dia: "Sábado", confirmados: ["Caio", "Duda", "Léo"] },
 ];
 
 const MIN_Z = 1;
-const MAX_Z = 3;
+const MAX_Z = 3.5;
 
 function useIsMobile() {
   const [m, setM] = useState(false);
@@ -71,52 +87,69 @@ function useIsMobile() {
   return m;
 }
 
-/** Medidor semicircular (0–40 nós). */
-function Gauge({ label, value, max = 40, accent }: { label: string; value: number; max?: number; accent: string }) {
-  const pct = Math.min(1, value / max);
-  const start = Math.PI, end = Math.PI * (1 - pct);
-  const r = 34, cx = 40, cy = 42;
-  const x1 = cx + r * Math.cos(start), y1 = cy - r * Math.sin(start);
-  const x2 = cx + r * Math.cos(end), y2 = cy - r * Math.sin(end);
-  const large = pct > 0.5 ? 1 : 0;
+/** Bússola de vento: rosa dos ventos + seta na direção + valor no centro. */
+function Compass({ label, value, deg, accent }: { label: string; value: number; deg: number; accent: string }) {
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 80 48" className="w-20 md:w-24">
-        <path d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="6" strokeLinecap="round" />
-        <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`} fill="none" stroke={accent} strokeWidth="6" strokeLinecap="round"
-          style={{ filter: `drop-shadow(0 0 6px ${accent})` }} />
-        <text x="40" y="40" textAnchor="middle" fill="white" fontSize="17" fontWeight="700">{value}</text>
+      <svg viewBox="0 0 88 88" className="w-[74px] md:w-[86px]">
+        <circle cx="44" cy="44" r="40" fill="none" stroke="#0c1a20" strokeOpacity="0.1" strokeWidth="1.5" />
+        {/* ticks dos 8 rumos */}
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i * 45 * Math.PI) / 180;
+          const main = i % 2 === 0;
+          const r1 = main ? 33 : 35.5, r2 = 40;
+          return (
+            <line key={i}
+              x1={44 + r1 * Math.sin(a)} y1={44 - r1 * Math.cos(a)}
+              x2={44 + r2 * Math.sin(a)} y2={44 - r2 * Math.cos(a)}
+              stroke="#0c1a20" strokeOpacity={main ? 0.35 : 0.15} strokeWidth={main ? 1.6 : 1} strokeLinecap="round" />
+          );
+        })}
+        <text x="44" y="12" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.55">N</text>
+        <text x="79" y="47" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.4">L</text>
+        <text x="44" y="83" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.4">S</text>
+        <text x="9" y="47" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0c1a20" fillOpacity="0.4">O</text>
+        {/* seta: aponta o rumo do vento */}
+        <g transform={`rotate(${deg} 44 44)`}>
+          <path d="M44 14 L49.5 26 L44 22.8 L38.5 26 Z" fill={accent} style={{ filter: `drop-shadow(0 1px 4px ${accent}66)` }} />
+          <path d="M44 74 L46.5 66 L44 68 L41.5 66 Z" fill="#0c1a20" fillOpacity="0.2" />
+        </g>
+        <text x="44" y="48" textAnchor="middle" fontSize="19" fontWeight="800" fill="#0c1a20">{value}</text>
+        <text x="44" y="58" textAnchor="middle" fontSize="7" fontWeight="600" fill="#0c1a20" fillOpacity="0.45" letterSpacing="1">NÓS</text>
       </svg>
-      <span className="mt-0.5 text-[9px] uppercase tracking-[0.18em] text-white/55">{label}</span>
+      <span className="mt-1 text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: accent }}>{label}</span>
     </div>
   );
 }
 
-/** Card do spot com os dois medidores. */
+/** Card do spot — fundo branco, duas bússolas (média e rajada). */
 function SpotPanel({ spot, onClose, compact }: { spot: string; onClose?: () => void; compact?: boolean }) {
-  const w = SPOT_WIND[spot] || { avg: 20, gust: 25, dir: "E" };
+  const w = SPOT_WIND[spot] || { avg: 20, gust: 25, dir: "E", deg: 90 };
   return (
-    <div className={`rounded-2xl border border-white/15 bg-[#0c1a20]/95 backdrop-blur-xl ${compact ? "px-4 py-3" : "p-5"} shadow-2xl`}>
+    <div className={`rounded-2xl border border-black/10 bg-white ${compact ? "px-4 py-3" : "p-5"} shadow-2xl shadow-black/40`}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-[#3fd0f0]" />
-            <span className="font-semibold text-white text-sm md:text-base">{spot}</span>
+            <MapPin className="h-3.5 w-3.5 text-[#0098c0]" />
+            <span className="font-semibold text-[#0c1a20] text-sm md:text-base">{spot}</span>
           </div>
-          <div className="mt-0.5 text-[11px] text-white/50">Direção {w.dir} · agora</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#0c1a20]/55">
+            <Navigation2 className="h-3 w-3" style={{ transform: `rotate(${w.deg}deg)` }} />
+            Vento de {w.dir} · agora
+          </div>
         </div>
         {onClose && (
-          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition">
+          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-1.5 text-[#0c1a20]/45 hover:text-[#0c1a20] hover:bg-black/5 transition">
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
-      <div className="mt-3 flex items-end justify-center gap-6">
-        <Gauge label="Vento médio" value={w.avg} accent="#39e58c" />
-        <Gauge label="Rajada" value={w.gust} accent="#3fd0f0" />
+      <div className="mt-3 flex items-start justify-center gap-5 md:gap-7">
+        <Compass label="Vento médio" value={w.avg} deg={w.deg} accent="#18b26b" />
+        <Compass label="Rajada" value={w.gust} deg={w.deg} accent="#0098c0" />
       </div>
-      <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${Math.min(100, (w.avg / 40) * 100)}%`, background: "linear-gradient(90deg,#39e58c,#c8f05a)" }} />
+      <div className="mt-3 h-1.5 rounded-full bg-black/8 overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, (w.avg / 40) * 100)}%`, background: "linear-gradient(90deg,#18b26b,#a5d922)" }} />
       </div>
     </div>
   );
@@ -281,8 +314,8 @@ export function ComunidadeMapa() {
             <span className="serif italic normal-case tracking-normal text-[#3fd0f0]">no vento agora.</span>
           </h2>
           <p className="mt-6 text-lg md:text-xl text-white/60 leading-relaxed max-w-xl">
-            Riders online em cada spot do litoral. Arrasta o mapa, dá zoom, clica num ponto
-            verde — vê o vento do pico e marca de velejar junto.
+            De Fortaleza aos Lençóis Maranhenses — a rota do vento inteira num mapa só.
+            Arrasta, dá zoom, clica num ponto verde: vê o vento do pico e marca de velejar junto.
           </p>
         </motion.div>
 
@@ -295,7 +328,7 @@ export function ComunidadeMapa() {
         >
           <div
             ref={viewRef}
-            className="relative aspect-[16/12] md:aspect-[21/10] cursor-grab active:cursor-grabbing select-none touch-none"
+            className="relative aspect-[16/13] md:aspect-[21/10] cursor-grab active:cursor-grabbing select-none touch-none"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -313,15 +346,20 @@ export function ComunidadeMapa() {
                     <stop offset="100%" stopColor="#0d2b25" />
                   </linearGradient>
                 </defs>
-                <path d="M0 32 Q 18 24 34 30 Q 52 37 66 46 Q 80 54 100 58 L 100 62 L 0 62 Z" fill="#c8b48a" opacity="0.9" />
-                <path d="M0 35 Q 18 27 34 33 Q 52 40 66 49 Q 80 57 100 61 L 100 62 L 0 62 Z" fill="url(#terra)" />
+                {/* Costa Lençóis → Fortaleza: mais longa e com delta dos Lençóis à esquerda */}
+                <path d="M0 28 Q 10 25.5 20 27 Q 30 29 40 32.5 Q 52 37 66 46 Q 80 54 100 58 L 100 62 L 0 62 Z" fill="#c8b48a" opacity="0.9" />
+                <path d="M0 31 Q 10 28.5 20 30 Q 30 32 40 35.5 Q 52 40 66 49 Q 80 57 100 61 L 100 62 L 0 62 Z" fill="url(#terra)" />
+                {/* lagoas dos Lençóis */}
+                <ellipse cx="4.5" cy="36" rx="1.6" ry="0.9" fill="#3fd0f0" opacity="0.35" />
+                <ellipse cx="8" cy="39" rx="1.2" ry="0.7" fill="#3fd0f0" opacity="0.3" />
+                <ellipse cx="12" cy="35.5" rx="1.4" ry="0.8" fill="#3fd0f0" opacity="0.3" />
               </svg>
 
               {SPOTS.map((s) => (
-                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 8}%` }}>
+                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 7}%` }}>
                   <div className="flex flex-col items-center gap-1" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
                     <MapPin className="h-3 w-3 text-white/40" />
-                    <span className="text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-white/55 whitespace-nowrap">{s.name}</span>
+                    <span className="text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/55 whitespace-nowrap">{s.name}</span>
                   </div>
                 </div>
               ))}
@@ -331,7 +369,7 @@ export function ComunidadeMapa() {
                   key={r.id}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={inView ? { scale: 1, opacity: 1 } : {}}
-                  transition={{ delay: 0.6 + i * 0.12, type: "spring", stiffness: 300, damping: 18 }}
+                  transition={{ delay: 0.6 + i * 0.1, type: "spring", stiffness: 300, damping: 18 }}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
                   style={{ left: `${r.x}%`, top: `${r.y}%` }}
                 >
@@ -342,7 +380,7 @@ export function ComunidadeMapa() {
                     aria-label={`Falar com ${r.name} em ${r.spot}`}
                   >
                     <span className="absolute inset-0 rounded-full bg-[#39e58c]"
-                      style={{ animation: "wiu-ping 2.4s cubic-bezier(0,0,0.2,1) infinite", animationDelay: `${i * 0.35}s` }} />
+                      style={{ animation: "wiu-ping 2.4s cubic-bezier(0,0,0.2,1) infinite", animationDelay: `${i * 0.3}s` }} />
                     <span className="relative block h-3.5 w-3.5 md:h-4 md:w-4 rounded-full bg-[#39e58c] ring-2 ring-[#0a2a1c] shadow-[0_0_14px_rgba(57,229,140,0.8)] transition-transform group-hover:scale-125" />
                     <span className="absolute left-1/2 -translate-x-1/2 -top-8 whitespace-nowrap rounded-full bg-black/80 backdrop-blur px-2.5 py-1 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       {r.name} · {r.spot}
@@ -390,7 +428,7 @@ export function ComunidadeMapa() {
                 <>
                   <motion.div key="spot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                     transition={{ type: "spring", damping: 26, stiffness: 300 }}
-                    className="absolute bottom-6 left-20 w-64">
+                    className="absolute bottom-6 left-20 w-72">
                     <SpotPanel spot={open.spot} />
                   </motion.div>
                   <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute bottom-6 right-6 w-[calc(100%-2rem)] max-w-xs" />
