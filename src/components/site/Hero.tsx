@@ -10,8 +10,16 @@ export function Hero() {
   const sceneOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const sceneStyle = reduce ? undefined : { opacity: sceneOpacity };
 
+  /* Parallax da pipa: conforme o usuário rola, ela desce planando em
+     direção ao centro e continua descendo até entrar na seção seguinte
+     (o Hero corta só no eixo X, então ela transborda pra baixo). */
+  const kiteY = useTransform(scrollYProgress, [0, 1], ["0vh", "118vh"]);
+  const kiteX = useTransform(scrollYProgress, [0, 1], ["0vw", "-30vw"]);
+  const kiteXMobile = useTransform(scrollYProgress, [0, 1], ["0vw", "8vw"]);
+  const kiteRotate = useTransform(scrollYProgress, [0, 0.5, 1], [0, 8, -6]);
+
   return (
-    <section ref={ref} id="top" className="relative min-h-[100vh] overflow-hidden bg-paper">
+    <section ref={ref} id="top" className="relative min-h-[100vh] overflow-x-clip bg-paper">
       <div
         aria-hidden
         className="absolute inset-0"
@@ -29,19 +37,41 @@ export function Hero() {
         <SeaWaves color="currentColor" className="h-full w-full" />
       </div>
 
+      {/* Pipa: entra planando ao abrir e depois desce junto com o scroll,
+          atravessando pro bloco seguinte. Mobile usa um desvio X próprio. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute right-[20%] bottom-[12%] w-24 md:right-[3%] md:top-[26%] md:bottom-auto md:w-36 lg:w-44"
+        className="pointer-events-none absolute z-30 right-[20%] bottom-[12%] w-24 md:hidden"
         initial={{ y: "-55vh", x: "10vw", rotate: -30, opacity: 0 }}
         animate={{ y: 0, x: 0, rotate: 0, opacity: 1 }}
         transition={{ duration: 2.4, delay: 0.3, ease: [0.15, 0.8, 0.2, 1] }}
       >
-        <motion.div
-          animate={reduce ? undefined : { rotate: [-3, 3, -3], y: [0, -8, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2.8 }}
-          style={{ transformOrigin: "top center" }}
-        >
-          <KiteShape color="var(--accent)" />
+        <motion.div style={reduce ? undefined : { y: kiteY, x: kiteXMobile, rotate: kiteRotate }}>
+          <motion.div
+            animate={reduce ? undefined : { rotate: [-3, 3, -3], y: [0, -8, 0] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2.8 }}
+            style={{ transformOrigin: "top center" }}
+          >
+            <KiteShape color="var(--accent)" />
+          </motion.div>
+        </motion.div>
+      </motion.div>
+
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute z-30 hidden md:block md:right-[3%] md:top-[26%] md:w-36 lg:w-44"
+        initial={{ y: "-55vh", x: "10vw", rotate: -30, opacity: 0 }}
+        animate={{ y: 0, x: 0, rotate: 0, opacity: 1 }}
+        transition={{ duration: 2.4, delay: 0.3, ease: [0.15, 0.8, 0.2, 1] }}
+      >
+        <motion.div style={reduce ? undefined : { y: kiteY, x: kiteX, rotate: kiteRotate }}>
+          <motion.div
+            animate={reduce ? undefined : { rotate: [-3, 3, -3], y: [0, -8, 0] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2.8 }}
+            style={{ transformOrigin: "top center" }}
+          >
+            <KiteShape color="var(--accent)" />
+          </motion.div>
         </motion.div>
       </motion.div>
 
