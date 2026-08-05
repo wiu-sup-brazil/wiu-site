@@ -9,7 +9,7 @@ export const NAV_LINKS = [
 ] as const;
 
 // Tabs that organize the platform's services.
-export type TabKey = "marketplace" | "instrutores" | "laudo" | "comunidade";
+export type TabKey = "marketplace" | "instrutores" | "laudo";
 
 export const TABS: {
   key: TabKey;
