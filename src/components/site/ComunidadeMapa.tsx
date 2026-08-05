@@ -4,10 +4,17 @@ import { motion, AnimatePresence, useInView } from "motion/react";
 import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarClock, Navigation2 } from "lucide-react";
 
 /**
- * Mapa da comunidade v4 — litoral do NE com traçado realista.
- * A costa curva característica: sai de Fortaleza (SE) subindo pra
- * Cumbuco/Paracuru, faz inflexão em Jericoacoara e vira horizontal
- * indo pros Lençóis Maranhenses (NW).
+ * Mapa da comunidade v5 — geografia realista.
+ *
+ * Litoral do NE brasileiro: curva característica saindo de Fortaleza (SE)
+ * subindo pra Cumbuco/Paracuru, inflexão em Jericoacoara, seguindo
+ * horizontal por Preá/Guajiru/Barra Grande até Atins/Lençóis (NW).
+ *
+ * - Inset do Brasil no canto: dá contexto de onde a WIU atua
+ * - Reentrâncias e saliências na costa (delta dos Lençóis, baía de
+ *   Camocim, ponta do Cumbuco, baía de Fortaleza)
+ * - Riders posicionados EXATAMENTE sobre a faixa de areia
+ * - Zoom até 5x para explorar cada spot em detalhe
  *
  * DEMO_RIDERS / SPOT_WIND / DEMO_GROUPS são dados de demonstração.
  * Quando o backend existir (Supabase Realtime), troque pelos canais
@@ -17,41 +24,42 @@ import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarCl
 type Rider = { id: string; name: string; spot: string; x: number; y: number; level: string };
 
 /**
- * Coordenadas sobre a costa real do NE:
- * - Fortaleza no canto SE (bem à direita, y alto)
- * - Curva subindo em diagonal por Cumbuco → Paracuru → Flecheiras
- * - Inflexão em Jericoacoara/Preá — costa vira horizontal
- * - Segue horizontal pra Barra Grande → Atins → Lençóis (NW)
+ * SPOTS posicionados sobre o LITORAL — a linha real de areia.
+ * Rota Fortaleza → Lençóis Maranhenses, seguindo a curva da costa.
  */
 const SPOTS = [
-  { name: "Lençóis", x: 4, y: 20 },
-  { name: "Atins", x: 10, y: 19 },
-  { name: "Barra Grande", x: 17, y: 18.5 },
-  { name: "Tatajuba", x: 23, y: 19 },
-  { name: "Jericoacoara", x: 28.5, y: 20 },
-  { name: "Preá", x: 33, y: 22 },
-  { name: "Ilha do Guajiru", x: 38, y: 25.5 },
-  { name: "Icaraizinho", x: 43, y: 30 },
-  { name: "Mundaú", x: 48, y: 34 },
-  { name: "Flecheiras", x: 53, y: 38 },
-  { name: "Paracuru", x: 59, y: 42.5 },
-  { name: "Taíba", x: 65, y: 47 },
-  { name: "Cumbuco", x: 72, y: 51.5 },
-  { name: "Fortaleza", x: 80, y: 56 },
+  { name: "Lençóis", x: 5.5, y: 22 },
+  { name: "Atins", x: 10, y: 21.5 },
+  { name: "Barra Grande", x: 17, y: 21 },
+  { name: "Tatajuba", x: 23, y: 21.5 },
+  { name: "Jericoacoara", x: 28.5, y: 22.5 },
+  { name: "Preá", x: 33, y: 24.5 },
+  { name: "Ilha do Guajiru", x: 38, y: 28 },
+  { name: "Icaraizinho", x: 43, y: 32 },
+  { name: "Mundaú", x: 48, y: 36 },
+  { name: "Flecheiras", x: 53, y: 40 },
+  { name: "Paracuru", x: 59, y: 44.5 },
+  { name: "Taíba", x: 65, y: 49 },
+  { name: "Cumbuco", x: 72, y: 53.5 },
+  { name: "Fortaleza", x: 80, y: 57.5 },
 ];
 
+/**
+ * Riders posicionados sobre a AREIA — em cima do spot deles ou ao lado.
+ * Não podem cair no mar nem no interior.
+ */
 const DEMO_RIDERS: Rider[] = [
-  { id: "r1", name: "Léo", spot: "Cumbuco", x: 71, y: 45, level: "Avançado" },
-  { id: "r2", name: "Marina", spot: "Cumbuco", x: 74, y: 43, level: "Intermediário" },
-  { id: "r3", name: "Pedrão", spot: "Taíba", x: 64, y: 40, level: "Avançado" },
-  { id: "r4", name: "Ana", spot: "Paracuru", x: 58, y: 36, level: "Iniciante" },
-  { id: "r5", name: "Duda", spot: "Flecheiras", x: 52, y: 31, level: "Avançado" },
-  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 43, y: 24, level: "Intermediário" },
-  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 38, y: 19, level: "Avançado" },
-  { id: "r8", name: "Thibaut", spot: "Preá", x: 33, y: 16, level: "Avançado" },
-  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 28.5, y: 14, level: "Intermediário" },
-  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 17, y: 13, level: "Intermediário" },
-  { id: "r11", name: "Bia", spot: "Atins", x: 10, y: 13.5, level: "Avançado" },
+  { id: "r1", name: "Léo", spot: "Cumbuco", x: 71, y: 53, level: "Avançado" },
+  { id: "r2", name: "Marina", spot: "Cumbuco", x: 73, y: 54.5, level: "Intermediário" },
+  { id: "r3", name: "Pedrão", spot: "Taíba", x: 65, y: 49, level: "Avançado" },
+  { id: "r4", name: "Ana", spot: "Paracuru", x: 59, y: 44, level: "Iniciante" },
+  { id: "r5", name: "Duda", spot: "Flecheiras", x: 53, y: 39.5, level: "Avançado" },
+  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 43, y: 31.5, level: "Intermediário" },
+  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 38, y: 27.5, level: "Avançado" },
+  { id: "r8", name: "Thibaut", spot: "Preá", x: 33, y: 24, level: "Avançado" },
+  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 28.5, y: 22, level: "Intermediário" },
+  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 17, y: 20.5, level: "Intermediário" },
+  { id: "r11", name: "Bia", spot: "Atins", x: 10, y: 21, level: "Avançado" },
 ];
 
 const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: number }> = {
@@ -80,7 +88,7 @@ const DEMO_GROUPS: Grupo[] = [
 ];
 
 const MIN_Z = 1;
-const MAX_Z = 3.5;
+const MAX_Z = 5;
 
 function useIsMobile() {
   const [m, setM] = useState(false);
@@ -180,6 +188,58 @@ function WindParticles() {
         @keyframes wiu-ping { 0% { transform: scale(1); opacity: 0.7; } 80%,100% { transform: scale(2.6); opacity: 0; } }
       `}</style>
     </div>
+  );
+}
+
+/**
+ * Mini-mapa do Brasil no canto — dá contexto geográfico:
+ * "A WIU atua aqui: costa do Nordeste."
+ */
+function BrasilInset() {
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      {/* Contorno simplificado do Brasil */}
+      <path
+        d="M 25 15
+           L 40 12 Q 55 10 68 15
+           Q 78 20 85 30
+           Q 92 40 90 50
+           Q 88 62 82 72
+           Q 75 82 65 88
+           Q 55 92 45 90
+           Q 35 88 28 82
+           Q 18 75 15 65
+           Q 10 55 12 45
+           Q 15 30 20 22
+           Q 22 18 25 15 Z"
+        fill="rgba(255,255,255,0.08)"
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth="0.6"
+        strokeLinejoin="round"
+      />
+      {/* Área do NE destacada em azul WIU */}
+      <path
+        d="M 55 18
+           Q 68 16 78 22
+           Q 87 28 89 38
+           Q 88 44 82 46
+           Q 72 45 62 38
+           Q 55 32 55 24
+           Q 55 20 55 18 Z"
+        fill="#00b4d8"
+        fillOpacity="0.35"
+        stroke="#3fd0f0"
+        strokeWidth="0.8"
+      />
+      {/* Ponto pulsante no NE (Ceará) */}
+      <circle cx="82" cy="28" r="1.6" fill="#39e58c">
+        <animate attributeName="r" values="1.6;2.6;1.6" dur="2.2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="1;0.4;1" dur="2.2s" repeatCount="indefinite" />
+      </circle>
+      <text x="50" y="98" fontSize="6" fill="white" fillOpacity="0.55" textAnchor="middle" fontWeight="600" letterSpacing="0.5">
+        NORDESTE
+      </text>
+    </svg>
   );
 }
 
@@ -337,65 +397,107 @@ export function ComunidadeMapa() {
             onDoubleClick={onDoubleClick}
           >
             <div className="absolute inset-0" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.s})`, transformOrigin: "0 0" }}>
-              <div className="absolute inset-0" style={{ background: "linear-gradient(215deg, #0b3a52 0%, #0d4a68 35%, #0f5c80 65%, #11689a 100%)" }} />
+              {/* Oceano com gradiente realista — turquesa perto da costa, azul profundo longe */}
+              <div className="absolute inset-0" style={{ background: "linear-gradient(200deg, #0a2f47 0%, #0e4a6b 40%, #1174a3 75%, #1a8ec4 100%)" }} />
+
+              {/* Textura de ondas do oceano */}
+              <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-30" aria-hidden>
+                <pattern id="ondas" x="0" y="0" width="6" height="4" patternUnits="userSpaceOnUse">
+                  <path d="M 0 2 Q 1.5 1 3 2 T 6 2" fill="none" stroke="#3fd0f0" strokeWidth="0.15" opacity="0.4" />
+                </pattern>
+                <rect x="0" y="0" width="100" height="20" fill="url(#ondas)" />
+              </svg>
+
               <WindParticles />
 
               {/*
-                Litoral do NE — curva realista:
-                — MA/PI (esquerda): costa quase horizontal (Lençóis → Barra Grande)
-                — Inflexão em Jericoacoara/Preá
-                — CE (direita): costa em diagonal descendente (Guajiru → Icaraizinho → Flecheiras → Paracuru → Cumbuco → Fortaleza)
+                LITORAL DETALHADO — com reentrâncias e saliências reais:
+                — Delta dos Lençóis (esquerda, lagoas azuis características)
+                — Baía de Camocim (reentrância entre Barra Grande e Jericoacoara)
+                — Ponta de Jericoacoara (saliência)
+                — Baía de Icaraí (leve reentrância)
+                — Ponta do Cumbuco (saliência)
+                — Baía de Fortaleza (curva final)
               */}
               <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
                 <defs>
-                  <linearGradient id="terra" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#123c33" />
-                    <stop offset="100%" stopColor="#0d2b25" />
+                  <linearGradient id="terra" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1a5c3e" />
+                    <stop offset="40%" stopColor="#134a30" />
+                    <stop offset="100%" stopColor="#0d3520" />
+                  </linearGradient>
+                  <linearGradient id="areia" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#e8d4a0" />
+                    <stop offset="100%" stopColor="#c8b48a" />
                   </linearGradient>
                   <radialGradient id="delta" cx="0.5" cy="0.5" r="0.5">
-                    <stop offset="0%" stopColor="#3fd0f0" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#3fd0f0" stopOpacity="0" />
+                    <stop offset="0%" stopColor="#5fd8f5" stopOpacity="0.55" />
+                    <stop offset="100%" stopColor="#5fd8f5" stopOpacity="0" />
                   </radialGradient>
                 </defs>
 
-                {/* Faixa de areia — segue a costa curvada */}
+                {/* Faixa de areia — mais larga, com saliências e reentrâncias */}
                 <path
-                  d="M 0 21
-                     Q 8 20 17 20
-                     Q 23 20.5 28 21.5
-                     Q 33 23 40 27
-                     Q 50 33 60 41
-                     Q 72 50 85 56
-                     Q 93 59 100 60
+                  d="M 0 22
+                     Q 3 21.5 6 21.8
+                     Q 12 20.8 17 20.5
+                     Q 20 20.7 22 21
+                     Q 25 21.8 27.5 21.5
+                     Q 29 21 30 22
+                     Q 32 23.5 34 24
+                     Q 38 26 41 28.5
+                     Q 45 32 48 35
+                     Q 52 39 55 42
+                     Q 59 45 62 47.5
+                     Q 66 50 69 52.5
+                     Q 72 54 74 55
+                     Q 77 56 80 57
+                     Q 88 58.5 100 60
                      L 100 62 L 0 62 Z"
-                  fill="#c8b48a"
-                  opacity="0.9"
+                  fill="url(#areia)"
                 />
-                {/* Terra — ligeiramente ao sul da faixa de areia */}
+
+                {/* Terra (verde) — logo atrás da areia */}
                 <path
-                  d="M 0 24
-                     Q 8 23 17 23
-                     Q 23 23.5 28 24.5
-                     Q 33 26 40 30
-                     Q 50 36 60 44
-                     Q 72 53 85 58
-                     Q 93 61 100 61.5
+                  d="M 0 25
+                     Q 3 24.5 6 24.8
+                     Q 12 24 17 23.8
+                     Q 20 24 22 24.3
+                     Q 25 25 27.5 25
+                     Q 29 24.5 30 25.5
+                     Q 32 27 34 27.5
+                     Q 38 29.5 41 32
+                     Q 45 35.5 48 38.5
+                     Q 52 42.5 55 45.5
+                     Q 59 48.5 62 51
+                     Q 66 53.5 69 55.5
+                     Q 72 57 74 58
+                     Q 77 59 80 59.5
+                     Q 88 60.5 100 61.5
                      L 100 62 L 0 62 Z"
                   fill="url(#terra)"
                 />
 
-                {/* Delta dos Lençóis — mais visível */}
-                <circle cx="4" cy="26" r="4" fill="url(#delta)" />
-                <ellipse cx="3" cy="24" rx="1.4" ry="0.6" fill="#3fd0f0" opacity="0.5" />
-                <ellipse cx="6" cy="26" rx="1" ry="0.5" fill="#3fd0f0" opacity="0.45" />
-                <ellipse cx="4.5" cy="28" rx="1.2" ry="0.5" fill="#3fd0f0" opacity="0.4" />
-                <ellipse cx="8" cy="27" rx="0.9" ry="0.4" fill="#3fd0f0" opacity="0.35" />
+                {/* Delta dos Lençóis — múltiplas lagoas azuis características */}
+                <circle cx="4" cy="27" r="6" fill="url(#delta)" />
+                <ellipse cx="2" cy="26" rx="1.5" ry="0.7" fill="#5fd8f5" opacity="0.6" />
+                <ellipse cx="4.5" cy="27.5" rx="1.2" ry="0.6" fill="#5fd8f5" opacity="0.55" />
+                <ellipse cx="7" cy="26.5" rx="1" ry="0.5" fill="#5fd8f5" opacity="0.5" />
+                <ellipse cx="3" cy="29" rx="0.9" ry="0.5" fill="#5fd8f5" opacity="0.45" />
+                <ellipse cx="6" cy="28.5" rx="0.7" ry="0.4" fill="#5fd8f5" opacity="0.5" />
+                <ellipse cx="8.5" cy="28" rx="0.6" ry="0.35" fill="#5fd8f5" opacity="0.4" />
+
+                {/* Rios cortando a terra — Rio Parnaíba e afluentes */}
+                <path d="M 15 62 Q 14 55 12 48 Q 11 42 13 35" fill="none" stroke="#3fd0f0" strokeWidth="0.3" opacity="0.35" />
+                <path d="M 45 62 Q 44 55 42 50" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
+                <path d="M 75 62 Q 74 60 72 58" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
 
                 {/* Labels de estados no interior */}
-                <text x="12" y="45" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.12" letterSpacing="0.3">MARANHÃO</text>
-                <text x="55" y="55" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.12" letterSpacing="0.3">CEARÁ</text>
+                <text x="10" y="42" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">MARANHÃO</text>
+                <text x="30" y="55" fontSize="1.4" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.3">PIAUÍ</text>
+                <text x="60" y="58" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">CEARÁ</text>
 
-                {/* Rosa dos ventos sutil no canto — referência de direção do vento */}
+                {/* Rosa dos ventos discreta */}
                 <g transform="translate(88 10)" opacity="0.35">
                   <circle cx="0" cy="0" r="3.5" fill="none" stroke="#ffffff" strokeWidth="0.15" />
                   <path d="M0 -3.5 L0.5 -0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" />
@@ -404,13 +506,23 @@ export function ComunidadeMapa() {
                   <path d="M-3.5 0 L-0.5 0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" opacity="0.6" />
                   <text x="0" y="-4.5" fontSize="1.4" fill="#ffffff" textAnchor="middle" fontWeight="700">N</text>
                 </g>
+
+                {/* Setinhas indicando a direção do vento predominante (alísios de leste) */}
+                <g opacity="0.25" fill="none" stroke="#3fd0f0" strokeWidth="0.15" strokeLinecap="round">
+                  <path d="M 95 15 L 85 15 M 88 13.5 L 85 15 L 88 16.5" />
+                  <path d="M 95 8 L 87 8 M 89.5 6.7 L 87 8 L 89.5 9.3" />
+                  <path d="M 95 5 L 88 5 M 90 3.8 L 88 5 L 90 6.2" />
+                </g>
               </svg>
 
               {SPOTS.map((s) => (
-                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 4}%` }}>
+                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 3.5}%` }}>
                   <div className="flex flex-col items-center gap-0.5" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
-                    <MapPin className="h-3 w-3 text-white/45" />
-                    <span className="text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/60 whitespace-nowrap font-semibold" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
+                    <MapPin className="h-3 w-3 text-white/50" />
+                    <span
+                      className="text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/80 whitespace-nowrap font-semibold"
+                      style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)" }}
+                    >
                       {s.name}
                     </span>
                   </div>
@@ -434,8 +546,8 @@ export function ComunidadeMapa() {
                   >
                     <span className="absolute inset-0 rounded-full bg-[#39e58c]"
                       style={{ animation: "wiu-ping 2.4s cubic-bezier(0,0,0.2,1) infinite", animationDelay: `${i * 0.3}s` }} />
-                    <span className="relative block h-3.5 w-3.5 md:h-4 md:w-4 rounded-full bg-[#39e58c] ring-2 ring-[#0a2a1c] shadow-[0_0_14px_rgba(57,229,140,0.8)] transition-transform group-hover:scale-125" />
-                    <span className="absolute left-1/2 -translate-x-1/2 -top-8 whitespace-nowrap rounded-full bg-black/80 backdrop-blur px-2.5 py-1 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <span className="relative block h-3.5 w-3.5 md:h-4 md:w-4 rounded-full bg-[#39e58c] ring-2 ring-white/90 shadow-[0_0_14px_rgba(57,229,140,0.9)] transition-transform group-hover:scale-125" />
+                    <span className="absolute left-1/2 -translate-x-1/2 -top-8 whitespace-nowrap rounded-full bg-black/85 backdrop-blur px-2.5 py-1 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       {r.name} · {r.spot}
                     </span>
                   </button>
@@ -466,13 +578,23 @@ export function ComunidadeMapa() {
               </button>
             </div>
 
-            {/* Controles de zoom */}
-            <div className="absolute bottom-3 left-3 md:bottom-6 md:left-6 flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
-              <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
-              <div className="h-px bg-white/10" />
-              <button onClick={() => zoomBtn(-1)} aria-label="Afastar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Minus className="h-4 w-4" /></button>
-              <div className="h-px bg-white/10" />
-              <button onClick={() => setT({ x: 0, y: 0, s: 1 })} aria-label="Resetar" className="grid h-9 w-9 place-items-center text-white/60 hover:bg-white/10 transition"><Maximize2 className="h-3.5 w-3.5" /></button>
+            {/* Controles de zoom + indicador */}
+            <div className="absolute bottom-3 left-3 md:bottom-6 md:left-6 flex flex-col items-start gap-2">
+              <div className="flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
+                <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
+                <div className="h-px bg-white/10" />
+                <button onClick={() => zoomBtn(-1)} aria-label="Afastar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Minus className="h-4 w-4" /></button>
+                <div className="h-px bg-white/10" />
+                <button onClick={() => setT({ x: 0, y: 0, s: 1 })} aria-label="Resetar" className="grid h-9 w-9 place-items-center text-white/60 hover:bg-white/10 transition"><Maximize2 className="h-3.5 w-3.5" /></button>
+              </div>
+              <div className="rounded-md bg-black/50 backdrop-blur border border-white/10 px-2 py-1 text-[9px] text-white/60 tabular-nums">
+                {Math.round(t.s * 100)}%
+              </div>
+            </div>
+
+            {/* Mini-mapa do Brasil no canto inferior direito — dá contexto geográfico */}
+            <div className="absolute bottom-3 right-3 md:bottom-6 md:right-6 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5">
+              <BrasilInset />
             </div>
 
             {/* DESKTOP: painel do spot + chat */}
@@ -481,10 +603,10 @@ export function ComunidadeMapa() {
                 <>
                   <motion.div key="spot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                     transition={{ type: "spring", damping: 26, stiffness: 300 }}
-                    className="absolute bottom-6 left-20 w-72">
+                    className="absolute top-24 left-6 w-72">
                     <SpotPanel spot={open.spot} />
                   </motion.div>
-                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute bottom-6 right-6 w-[calc(100%-2rem)] max-w-xs" />
+                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute top-24 right-6 w-[calc(100%-2rem)] max-w-xs" />
                 </>
               )}
             </AnimatePresence>
