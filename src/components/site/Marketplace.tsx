@@ -146,15 +146,22 @@ export function Marketplace() {
                         <h3 className="mt-1.5 text-[17px] font-semibold leading-tight text-ink">
                           {p.model || p.name}
                         </h3>
-                      <div className="mt-2.5 flex items-center gap-2.5">
+                  <div className="mt-2.5">
                         {p.eval_type === "presencial" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#18b26b]/10 border border-[#18b26b]/30 px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] font-bold text-[#18b26b]">
-                            <svg viewBox="0 0 16 16" className="h-3 w-3"><path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            Premium
+                          <span
+                            className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold"
+                            style={{ border: "1px solid rgba(250,201,60,0.6)", color: "#b8860b" }}
+                          >
+                            <Award className="h-3.5 w-3.5" />
+                            Premium · Presencial
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-ink/55">
-                            <ShieldCheck className="h-3.5 w-3.5" /> {p.condition || "Avaliado"}
+                          <span
+                            className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold"
+                            style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            Padrão · Obrigatório
                           </span>
                         )}
                       </div>
