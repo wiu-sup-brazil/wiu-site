@@ -51,32 +51,24 @@ export function Marketplace() {
           <div className="flex items-center justify-center gap-3 text-[11px] uppercase tracking-[0.3em] text-ink/50">
             <span className="h-px w-10 bg-ink/30" /> Estoque real, atualizado hoje <span className="h-px w-10 bg-ink/30" />
           </div>
-          <h2 className="mt-6 md:mt-8 overflow-hidden">
+       <h2 className="mt-6 md:mt-8 overflow-visible">
             <motion.span
-              className="display text-5xl sm:text-6xl md:text-7xl lg:text-9xl block md:inline"
+              className="display text-4xl sm:text-5xl md:text-7xl lg:text-8xl block"
               initial={{ x: "-40%", opacity: 0 }}
               whileInView={{ x: 0, opacity: 1 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1] }}
+              style={{ lineHeight: 1.1 }}
             >
-              Equipamento{" "}
+              Equipamento <span className="serif italic normal-case tracking-normal">certo</span>,
             </motion.span>
             <motion.span
-              className="display text-5xl sm:text-6xl md:text-7xl lg:text-9xl block md:inline"
+              className="display text-4xl sm:text-5xl md:text-7xl lg:text-8xl block mt-1"
               initial={{ x: "40%", opacity: 0 }}
               whileInView={{ x: 0, opacity: 1 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.9, delay: 0.1, ease: [0.2, 0.7, 0.2, 1] }}
-            >
-              <span className="serif italic normal-case tracking-normal">certo</span>,
-            </motion.span>
-            <br />
-            <motion.span
-              className="display text-5xl sm:text-6xl md:text-7xl lg:text-9xl"
-              initial={{ y: 30, opacity: 0 }}
-              whileInView={{ y: 0, opacity: 1 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: [0.2, 0.7, 0.2, 1] }}
+              transition={{ duration: 0.9, delay: 0.15, ease: [0.2, 0.7, 0.2, 1] }}
+              style={{ lineHeight: 1.1, paddingBottom: "0.15em" }}
             >
               no preço justo.
             </motion.span>
