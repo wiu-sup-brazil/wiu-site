@@ -7,7 +7,7 @@ export function useProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('equipment')
-        .select('id, code, name, category, asking_price, year, condition, photos, notes, accessories')
+        .select('id, code, name, brand, model, size, category, asking_price, year, condition, photos, raio_x, accessories, quantity')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
