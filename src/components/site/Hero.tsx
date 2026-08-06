@@ -130,7 +130,7 @@ export function Hero() {
       <AnimatePresence>
         {!chatClosed && (
           <motion.div
-            className="hidden md:block absolute z-40 md:right-[12%] md:top-[40%] md:w-[340px] lg:w-[360px]"
+            className="hidden md:block absolute z-40 md:right-[22%] md:top-[40%] md:w-[340px] lg:w-[360px]"
             initial={{ opacity: 0, y: 40, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
