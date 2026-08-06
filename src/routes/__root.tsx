@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, Link, createRootRouteWithContext } from "@tanstack/react-router";
+import { CustomScrollbar } from "@/components/site/CustomScrollbar";
 
 function NotFoundComponent() {
   return (
@@ -65,6 +66,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <CustomScrollbar />
     </QueryClientProvider>
   );
 }
