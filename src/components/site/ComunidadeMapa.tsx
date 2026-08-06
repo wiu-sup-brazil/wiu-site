@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets, UserPlus, Sparkles } from "lucide-react";
 
 /**
- * Mapa da comunidade v9, geometria real do litoral NE.
+ * Mapa da comunidade v10.
  *
- * Muda em relação à v8:
- *  - Spots com lat/lng reais, projetados via helper `proj()`.
- *  - Contorno da costa desenhado a partir de ~50 pontos reais (Baía de São
- *    Marcos, cabo de São Roque, Baía de Todos os Santos aparecem certos).
- *  - Sistema de LOD, mais detalhe conforme zoom, cidades vizinhas aparecem
- *    em cinza (Camocim, Aracati, Touros, Recife, Ilhéus, etc).
- *  - SpotPanel vai pro canto inferior-esquerdo, ChatCard pro canto
- *    inferior-direito. Nenhum cobre o miolo do mapa.
- *  - Aspecto do container 16/12 no desktop (mais vertical, cabe o NE inteiro).
- *  - Setas de vento mais densas + coordenadas do cursor tipo Windy.
+ * Muda em relação à v9:
+ *  - Clique num rider agora "puxa" o mapa (zoom + pan animados) até enquadrar
+ *    o rider na metade esquerda, deixando espaço pro chat na direita. Ao
+ *    fechar o chat, o mapa volta pro estado exato de antes.
+ *  - Chat ganha barra de ações (Criar grupo / Convidar) com mini-form inline
+ *    e popover de convite. Grupos criados persistem na sessão e entram na
+ *    lista "Grupos de velejo" do topo do mapa.
+ *  - Mensagens agora suportam type: 'user' | 'reply' | 'system' (system
+ *    aparece como cardzinho neutro no centro do chat).
  *
  * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS seguem hardcoded.
  * Sem em-dashes (— substituído por vírgula).
@@ -473,6 +472,7 @@ export function ComunidadeMapa() {
   const [showGroups, setShowGroups] = useState(false);
   const [showForecast, setShowForecast] = useState(false);
   const [joined, setJoined] = useState<Set<string>>(new Set());
+  const [groups, setGroups] = useState<Grupo[]>(DEMO_GROUPS);
 
   const viewRef = useRef<HTMLDivElement>(null);
   const [t, setT] = useState({ x: 0, y: 0, s: 1 });
@@ -484,6 +484,39 @@ export function ComunidadeMapa() {
   const moved = useRef(false);
   const lastTap = useRef(0);
   const [cursor, setCursor] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Animação zoom/pan (RAF) + estado salvo pré-zoom-ao-rider
+  const rafId = useRef<number | null>(null);
+  const preZoomState = useRef<{ x: number; y: number; s: number } | null>(null);
+
+  const cancelAnim = useCallback(() => {
+    if (rafId.current !== null) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
+    }
+  }, []);
+
+  const animateTo = useCallback((target: { x: number; y: number; s: number }, duration = 550) => {
+    cancelAnim();
+    const start = { ...tRef.current };
+    const t0 = performance.now();
+    const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / duration);
+      const e = easeOut(p);
+      setT({
+        x: start.x + (target.x - start.x) * e,
+        y: start.y + (target.y - start.y) * e,
+        s: start.s + (target.s - start.s) * e,
+      });
+      if (p < 1) {
+        rafId.current = requestAnimationFrame(step);
+      } else {
+        rafId.current = null;
+      }
+    };
+    rafId.current = requestAnimationFrame(step);
+  }, [cancelAnim]);
 
   const clamp = useCallback((x: number, y: number, s: number) => {
     const el = viewRef.current;
@@ -524,6 +557,8 @@ export function ComunidadeMapa() {
       pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), s: tRef.current.s };
       dragging.current = false;
     }
+    // qualquer interação manual cancela a animação em curso
+    cancelAnim();
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -603,7 +638,62 @@ export function ComunidadeMapa() {
   function riderClick(r: Rider) {
     if (moved.current) return;
     setOpen(r);
+    if (isMobile) return;
+
+    const el = viewRef.current;
+    if (!el) return;
+    const { width: W, height: H } = el.getBoundingClientRect();
+    // Posição do rider no mapa base (scale = 1), em pixels
+    const p = proj(r.lat, r.lng);
+    const rx = (p.x / 100) * W;
+    const ry = (p.y / 100) * H;
+
+    // Zoom alvo: 3x. Rider vai pra ~32% horizontal (sobra ~44% pro chat na
+    // direita) e ~48% vertical (levemente acima do centro pra dar respiro
+    // aos painéis embaixo).
+    const ns = 3;
+    const targetX = W * 0.32 - rx * ns;
+    const targetY = H * 0.48 - ry * ns;
+    const target = clamp(targetX, targetY, ns);
+
+    // Salva estado atual antes de puxar
+    preZoomState.current = { ...tRef.current };
+    animateTo(target, 600);
   }
+
+  function closeChat() {
+    setOpen(null);
+    if (preZoomState.current && !isMobile) {
+      animateTo(preZoomState.current, 550);
+    }
+    preZoomState.current = null;
+  }
+
+  useEffect(() => {
+    return () => cancelAnim();
+  }, [cancelAnim]);
+
+  // Handlers de grupos passados pro ChatCard
+  const inviteToGroup = useCallback((groupId: string, riderName: string) => {
+    setGroups((prev) => prev.map((g) => {
+      if (g.id !== groupId) return g;
+      if (g.confirmados.includes(riderName)) return g;
+      return { ...g, confirmados: [...g.confirmados, riderName] };
+    }));
+    // Convidante entra automático como confirmado nesse grupo
+    setJoined((prev) => new Set(prev).add(groupId));
+  }, []);
+
+  const createGroup = useCallback((rota: string, dia: string, horario: string, spot: string, riderName: string) => {
+    const id = `g_${Date.now()}`;
+    const novoGrupo: Grupo = {
+      id, spot, rota, dia, horario,
+      confirmados: [riderName],
+    };
+    setGroups((prev) => [...prev, novoGrupo]);
+    setJoined((prev) => new Set(prev).add(id));
+    return id;
+  }, []);
 
   const inv = 1 / t.s;
   const chatOpenDesktop = open && !isMobile;
@@ -864,7 +954,7 @@ export function ComunidadeMapa() {
                 className="flex items-center gap-2 rounded-full bg-[#00b4d8] px-3.5 py-2 text-[11px] md:text-sm font-semibold text-white shadow-lg shadow-[#00b4d8]/30 hover:brightness-110 transition"
               >
                 <Users className="h-3.5 w-3.5" /> Grupos de velejo
-                <span className="rounded-full bg-white/25 px-1.5 text-[10px] tabular-nums">{DEMO_GROUPS.length}</span>
+                <span className="rounded-full bg-white/25 px-1.5 text-[10px] tabular-nums">{groups.length}</span>
               </button>
             </div>
 
@@ -923,9 +1013,12 @@ export function ComunidadeMapa() {
                   <ChatCard
                     key="chat"
                     rider={open}
-                    onClose={() => setOpen(null)}
-                    className="absolute right-4 bottom-4 w-[300px] z-20"
+                    onClose={closeChat}
+                    className="absolute right-4 bottom-4 w-[320px] z-20"
                     compactHeight
+                    groups={groups}
+                    onInvite={inviteToGroup}
+                    onCreateGroup={createGroup}
                   />
                 </>
               )}
@@ -973,7 +1066,14 @@ export function ComunidadeMapa() {
               <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
                 className="mt-4 flex-1 flex flex-col rounded-t-3xl overflow-hidden">
-                <ChatCard rider={open} onClose={() => setOpen(null)} full />
+                <ChatCard
+                  rider={open}
+                  onClose={closeChat}
+                  full
+                  groups={groups}
+                  onInvite={inviteToGroup}
+                  onCreateGroup={createGroup}
+                />
               </motion.div>
             </motion.div>
           )}
@@ -1005,7 +1105,7 @@ export function ComunidadeMapa() {
                 </div>
 
                 <div className="p-5 space-y-3.5">
-                  {DEMO_GROUPS.map((g) => {
+                  {groups.map((g) => {
                     const eu = joined.has(g.id);
                     const total = g.confirmados.length + (eu ? 1 : 0);
                     return (
@@ -1237,31 +1337,102 @@ function SpotForecastCard({ name }: { name: string }) {
   );
 }
 
-/* Chat estilo WhatsApp */
+/* ============================================================
+ *  Chat estilo WhatsApp + ações de grupo de velejo
+ * ============================================================ */
+
+type ChatMsg =
+  | { type: "user"; text: string; time: string }
+  | { type: "reply"; text: string; time: string }
+  | { type: "system"; text: string; time: string; icon?: "sparkles" | "userplus" };
+
+const DIAS_OPCOES = ["Hoje", "Amanhã", "Depois de amanhã", "Sábado", "Domingo"];
+
 function ChatCard({
   rider, onClose, className = "", full, compactHeight,
-}: { rider: Rider; onClose: () => void; className?: string; full?: boolean; compactHeight?: boolean }) {
-  const [msgs, setMsgs] = useState<{ me: boolean; text: string; time: string }[]>([]);
+  groups, onInvite, onCreateGroup,
+}: {
+  rider: Rider;
+  onClose: () => void;
+  className?: string;
+  full?: boolean;
+  compactHeight?: boolean;
+  groups: Grupo[];
+  onInvite: (groupId: string, riderName: string) => void;
+  onCreateGroup: (rota: string, dia: string, horario: string, spot: string, riderName: string) => string;
+}) {
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<"chat" | "invite" | "create">("chat");
 
+  // Estado do mini-form de criar grupo
+  const [rota, setRota] = useState<string>(`${rider.spot} → `);
+  const [dia, setDia] = useState<string>("Hoje");
+  const [horario, setHorario] = useState<string>("");
+
+  const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => { boxRef.current?.scrollTo({ top: 9e9, behavior: "smooth" }); }, [msgs, typing]);
+
+  // Reseta o form quando abre a tela de criar
+  useEffect(() => {
+    if (mode === "create") {
+      setRota(`${rider.spot} → `);
+      setDia("Hoje");
+      setHorario("");
+    }
+  }, [mode, rider.spot]);
 
   function send() {
     const tt = text.trim();
     if (!tt) return;
-    setMsgs((m) => [...m, { me: true, text: tt, time: nowTime() }]);
+    setMsgs((m) => [...m, { type: "user", text: tt, time: nowTime() }]);
     setText("");
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
-      setMsgs((m) => [...m, { me: false, text: `Opa! Aqui em ${rider.spot} o vento tá firme. Cola aqui! 🤙`, time: nowTime() }]);
+      setMsgs((m) => [...m, { type: "reply", text: `Opa! Aqui em ${rider.spot} o vento tá firme. Cola aqui! 🤙`, time: nowTime() }]);
     }, 1400);
   }
 
+  function handleInvite(g: Grupo) {
+    onInvite(g.id, rider.name);
+    setMsgs((m) => [
+      ...m,
+      {
+        type: "system",
+        icon: "userplus",
+        text: `${rider.name} convidado pro grupo "${g.rota}" (${g.dia}, ${g.horario}).`,
+        time: nowTime(),
+      },
+    ]);
+    setMode("chat");
+  }
+
+  function handleCreate() {
+    const r = rota.trim();
+    const h = horario.trim();
+    if (!r || r.endsWith("→") || r.endsWith("→ ") || !h) return;
+    onCreateGroup(r, dia, h, rider.spot, rider.name);
+    setMsgs((m) => [
+      ...m,
+      {
+        type: "system",
+        icon: "sparkles",
+        text: `Grupo criado, "${r}" ${dia.toLowerCase()}, ${h}. ${rider.name} convidado.`,
+        time: nowTime(),
+      },
+    ]);
+    setMode("chat");
+  }
+
+  const canCreate = rota.trim().length > 2 && !rota.trim().endsWith("→") && horario.trim().length > 0;
+
+  const bodyHeight = full ? "flex-1" : compactHeight ? "h-40" : "h-64";
+
   const inner = (
     <>
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#111] shrink-0">
         <div className="relative">
           <div className="grid h-9 w-9 place-items-center rounded-full text-white text-sm font-bold"
@@ -1279,86 +1450,240 @@ function ChatCard({
         </button>
       </div>
 
+      {/* Barra de ações de grupo */}
+      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-[#181818] border-t border-white/5 shrink-0">
+        <button
+          onClick={() => setMode(mode === "invite" ? "chat" : "invite")}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition ${
+            mode === "invite"
+              ? "bg-[#00b4d8] text-white"
+              : "text-white/70 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <UserPlus className="h-3 w-3" />
+          Convidar pra grupo
+        </button>
+        <span className="h-4 w-px bg-white/10" />
+        <button
+          onClick={() => setMode(mode === "create" ? "chat" : "create")}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition ${
+            mode === "create"
+              ? "bg-[#00b4d8] text-white"
+              : "text-white/70 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <Sparkles className="h-3 w-3" />
+          Criar grupo
+        </button>
+      </div>
+
+      {/* Corpo */}
       <div
         ref={boxRef}
-        className={`${full ? "flex-1" : compactHeight ? "h-40" : "h-64"} overflow-y-auto px-3.5 py-3 space-y-2`}
+        className={`${bodyHeight} overflow-y-auto ${mode === "chat" ? "px-3.5 py-3 space-y-2" : "px-3 py-3"}`}
         style={{
           background: "#f7f5f0",
-          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(13,13,13,0.05) 1px, transparent 0)",
+          backgroundImage: mode === "chat" ? "radial-gradient(circle at 1px 1px, rgba(13,13,13,0.05) 1px, transparent 0)" : "none",
           backgroundSize: "14px 14px",
         }}
       >
-        {msgs.length === 0 && !typing && (
-          <div className="text-center py-4 px-4">
-            <p className="text-[11px] text-[#0c1a20]/50 leading-relaxed">
-              Diz um "e aí, como tá o vento em {rider.spot}?"
-            </p>
-            <p className="text-[10px] text-[#0c1a20]/35 mt-1.5">A conversa some quando fechar.</p>
-          </div>
-        )}
-
-        {msgs.map((m, i) => (
-          <div key={i} className={`flex items-end gap-1.5 ${m.me ? "justify-end" : "justify-start"}`}>
-            {!m.me && (
-              <div className="grid h-6 w-6 place-items-center rounded-full text-white text-[10px] font-bold shrink-0 mb-0.5"
-                style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
-                {rider.name.charAt(0)}
+        {/* Modo CHAT */}
+        {mode === "chat" && (
+          <>
+            {msgs.length === 0 && !typing && (
+              <div className="text-center py-4 px-4">
+                <p className="text-[11px] text-[#0c1a20]/50 leading-relaxed">
+                  Diz um "e aí, como tá o vento em {rider.spot}?"
+                </p>
+                <p className="text-[10px] text-[#0c1a20]/35 mt-1.5">A conversa some quando fechar.</p>
               </div>
             )}
-            <div
-              className={`max-w-[78%] px-3 py-2 text-[13px] leading-snug ${
-                m.me
-                  ? "bg-[#00b4d8] text-white rounded-2xl rounded-br-sm"
-                  : "bg-white text-[#0c1a20] rounded-2xl rounded-bl-sm border border-black/5"
-              }`}
-              style={!m.me ? { boxShadow: "0 1px 2px rgba(0,0,0,0.04)" } : undefined}
-            >
-              {!m.me && <div className="text-[10px] font-semibold text-[#00b4d8] mb-0.5">{rider.name}</div>}
-              <div>{m.text}</div>
-              <div className={`mt-1 flex items-center gap-1 text-[9px] ${m.me ? "text-white/75 justify-end" : "text-[#0c1a20]/40 justify-end"}`}>
-                {m.time}
-                {m.me && <CheckCheck className="h-3 w-3" />}
-              </div>
-            </div>
-          </div>
-        ))}
 
-        {typing && (
-          <div className="flex items-end gap-1.5 justify-start">
-            <div className="grid h-6 w-6 place-items-center rounded-full text-white text-[10px] font-bold shrink-0 mb-0.5"
-              style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
-              {rider.name.charAt(0)}
+            {msgs.map((m, i) => {
+              if (m.type === "system") {
+                const Icon = m.icon === "sparkles" ? Sparkles : UserPlus;
+                return (
+                  <div key={i} className="flex justify-center py-1">
+                    <div className="max-w-[92%] inline-flex items-start gap-2 rounded-xl bg-[#00b4d8]/8 border border-[#00b4d8]/20 px-3 py-2 text-[11px] leading-snug text-[#0c1a20]/75">
+                      <Icon className="h-3 w-3 mt-0.5 text-[#0098c0] shrink-0" />
+                      <div className="flex-1">
+                        <div>{m.text}</div>
+                        <div className="mt-0.5 text-[9px] text-[#0c1a20]/40 tabular-nums">{m.time}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              const isMe = m.type === "user";
+              return (
+                <div key={i} className={`flex items-end gap-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
+                  {!isMe && (
+                    <div className="grid h-6 w-6 place-items-center rounded-full text-white text-[10px] font-bold shrink-0 mb-0.5"
+                      style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
+                      {rider.name.charAt(0)}
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[78%] px-3 py-2 text-[13px] leading-snug ${
+                      isMe
+                        ? "bg-[#00b4d8] text-white rounded-2xl rounded-br-sm"
+                        : "bg-white text-[#0c1a20] rounded-2xl rounded-bl-sm border border-black/5"
+                    }`}
+                    style={!isMe ? { boxShadow: "0 1px 2px rgba(0,0,0,0.04)" } : undefined}
+                  >
+                    {!isMe && <div className="text-[10px] font-semibold text-[#00b4d8] mb-0.5">{rider.name}</div>}
+                    <div>{m.text}</div>
+                    <div className={`mt-1 flex items-center gap-1 text-[9px] ${isMe ? "text-white/75 justify-end" : "text-[#0c1a20]/40 justify-end"}`}>
+                      {m.time}
+                      {isMe && <CheckCheck className="h-3 w-3" />}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {typing && (
+              <div className="flex items-end gap-1.5 justify-start">
+                <div className="grid h-6 w-6 place-items-center rounded-full text-white text-[10px] font-bold shrink-0 mb-0.5"
+                  style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
+                  {rider.name.charAt(0)}
+                </div>
+                <div className="bg-white rounded-2xl rounded-bl-sm border border-black/5 px-3.5 py-2.5"
+                  style={{ boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+                  <div className="flex gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Modo CONVIDAR pra grupo */}
+        {mode === "invite" && (
+          <div className="space-y-2">
+            <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.16em] font-semibold text-[#0c1a20]/45">
+              Convidar {rider.name} pra
             </div>
-            <div className="bg-white rounded-2xl rounded-bl-sm border border-black/5 px-3.5 py-2.5"
-              style={{ boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
-              <div className="flex gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "300ms" }} />
+            {groups.length === 0 && (
+              <div className="text-center py-6 text-[11px] text-[#0c1a20]/50">
+                Nenhum grupo ainda. Crie o primeiro na aba ao lado.
+              </div>
+            )}
+            {groups.map((g) => {
+              const jaEsta = g.confirmados.includes(rider.name);
+              return (
+                <button
+                  key={g.id}
+                  disabled={jaEsta}
+                  onClick={() => handleInvite(g)}
+                  className={`w-full text-left rounded-xl border p-3 transition ${
+                    jaEsta
+                      ? "bg-black/[0.03] border-black/8 opacity-60 cursor-not-allowed"
+                      : "bg-white border-black/8 hover:border-[#00b4d8]/50 hover:shadow-md"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-[#0098c0] font-semibold">
+                    <MapPin className="h-2.5 w-2.5" /> {g.spot}
+                  </div>
+                  <div className="mt-1 font-semibold text-[#0c1a20] text-[13px] leading-snug">{g.rota}</div>
+                  <div className="mt-0.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 text-[10px] text-[#0c1a20]/55">
+                      <CalendarClock className="h-2.5 w-2.5" />
+                      {g.dia}, {g.horario}
+                    </div>
+                    <div className="text-[10px] text-[#0c1a20]/50 tabular-nums">
+                      {g.confirmados.length} {g.confirmados.length === 1 ? "confirmado" : "confirmados"}
+                    </div>
+                  </div>
+                  {jaEsta && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-[#18b26b] font-semibold">
+                      <Check className="h-3 w-3" /> Já está no grupo
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Modo CRIAR grupo */}
+        {mode === "create" && (
+          <div className="space-y-2.5">
+            <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.16em] font-semibold text-[#0c1a20]/45">
+              Novo grupo, {rider.name} entra automático
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.12em] font-semibold text-[#0c1a20]/55 mb-1">Rota</label>
+              <input
+                value={rota}
+                onChange={(e) => setRota(e.target.value)}
+                placeholder={`${rider.spot} → destino`}
+                className="w-full rounded-lg bg-white border border-black/10 px-2.5 py-1.5 text-[12px] text-[#0c1a20] placeholder:text-[#0c1a20]/35 outline-none focus:border-[#00b4d8]/60"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.12em] font-semibold text-[#0c1a20]/55 mb-1">Dia</label>
+                <select
+                  value={dia}
+                  onChange={(e) => setDia(e.target.value)}
+                  className="w-full rounded-lg bg-white border border-black/10 px-2 py-1.5 text-[12px] text-[#0c1a20] outline-none focus:border-[#00b4d8]/60"
+                >
+                  {DIAS_OPCOES.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.12em] font-semibold text-[#0c1a20]/55 mb-1">Horário</label>
+                <input
+                  value={horario}
+                  onChange={(e) => setHorario(e.target.value)}
+                  placeholder="ex: 12h – 15h"
+                  className="w-full rounded-lg bg-white border border-black/10 px-2.5 py-1.5 text-[12px] text-[#0c1a20] placeholder:text-[#0c1a20]/35 outline-none focus:border-[#00b4d8]/60"
+                />
               </div>
             </div>
+
+            <button
+              onClick={handleCreate}
+              disabled={!canCreate}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00b4d8] px-3 py-2 text-[12px] font-semibold text-white shadow hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="h-3 w-3" /> Criar grupo e convidar
+            </button>
+            <p className="text-center text-[10px] text-[#0c1a20]/40 pt-0.5">
+              O grupo aparece na lista "Grupos de velejo" do topo do mapa.
+            </p>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-black/8 shrink-0"
-        style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Digite uma mensagem…"
-          className="flex-1 bg-[#f2f0ea] rounded-full px-4 py-2 text-[13px] text-[#0c1a20] placeholder:text-[#0c1a20]/40 outline-none border border-black/5 focus:border-[#00b4d8]/40 transition"
-        />
-        <button
-          onClick={send}
-          aria-label="Enviar"
-          disabled={!text.trim()}
-          className="grid h-9 w-9 place-items-center rounded-full bg-[#00b4d8] text-white hover:brightness-110 transition disabled:opacity-40 shrink-0"
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Campo de input (só no modo chat) */}
+      {mode === "chat" && (
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-black/8 shrink-0"
+          style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="Digite uma mensagem…"
+            className="flex-1 bg-[#f2f0ea] rounded-full px-4 py-2 text-[13px] text-[#0c1a20] placeholder:text-[#0c1a20]/40 outline-none border border-black/5 focus:border-[#00b4d8]/40 transition"
+          />
+          <button
+            onClick={send}
+            aria-label="Enviar"
+            disabled={!text.trim()}
+            className="grid h-9 w-9 place-items-center rounded-full bg-[#00b4d8] text-white hover:brightness-110 transition disabled:opacity-40 shrink-0"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </>
   );
 
@@ -1370,7 +1695,7 @@ function ChatCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 24 }}
       transition={{ type: "spring", damping: 26, stiffness: 300 }}
-      className={`overflow-hidden bg-white ${className}`}
+      className={`overflow-hidden bg-white flex flex-col ${className}`}
       style={{ borderRadius: "18px", boxShadow: "0 25px 70px -10px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)" }}
     >
       {inner}
