@@ -1,20 +1,18 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets, UserPlus, Sparkles, ChevronUp, ChevronDown, Minimize2, MousePointerClick } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets, UserPlus, Sparkles, Minimize2, MousePointerClick } from "lucide-react";
 
 /**
- * Mapa da comunidade v11.
+ * Mapa da comunidade v12.
  *
- * Muda em relação à v10:
- *  - Desktop: mapa começa em modo compacto (aspect 16/5) com overlay CTA
- *    "Toque pra explorar o mapa". Wheel e drag passam direto pra página.
- *    Ao clicar o overlay, expande pro aspect 16/12 usual, todo o resto
- *    (zoom, drag, riders, painéis) volta a funcionar como na v10.
- *  - Handle de scroll da página na borda direita do mapa (só expandido):
- *    setinha pra cima, setinha pra baixo (segurar = scroll contínuo) e
- *    botão de minimizar (volta pro modo compacto).
- *  - Mobile ignora o modo compacto: sempre expandido (comportamento igual v10).
+ * Muda em relação à v11:
+ *  - Cluster de scroll da página que ficava na borda direita interna do mapa
+ *    foi removido (poluía o mapa). Em vez dele, a scrollbar customizada
+ *    global (componente CustomScrollbar, montado em __root.tsx) resolve
+ *    a rolagem em qualquer ponto da página.
+ *  - Botão de minimizar continua existindo, agora discreto no HUD topo
+ *    direito (junto do bloco de vento e grupos).
  */
 
 /* ============================================================
@@ -685,39 +683,8 @@ export function ComunidadeMapa() {
     return () => cancelAnim();
   }, [cancelAnim]);
 
-  // Page scroll contínuo (segurar setinha na borda direita do mapa)
-  const scrollDir = useRef<-1 | 0 | 1>(0);
-  const scrollRaf = useRef<number | null>(null);
-
-  const stopPageScroll = useCallback(() => {
-    scrollDir.current = 0;
-    if (scrollRaf.current !== null) {
-      cancelAnimationFrame(scrollRaf.current);
-      scrollRaf.current = null;
-    }
-  }, []);
-
-  const startPageScroll = useCallback((dir: -1 | 1) => {
-    scrollDir.current = dir;
-    if (scrollRaf.current !== null) return;
-    const tick = () => {
-      if (scrollDir.current !== 0) {
-        window.scrollBy(0, scrollDir.current * 9);
-        scrollRaf.current = requestAnimationFrame(tick);
-      } else {
-        scrollRaf.current = null;
-      }
-    };
-    scrollRaf.current = requestAnimationFrame(tick);
-  }, []);
-
-  useEffect(() => {
-    return () => stopPageScroll();
-  }, [stopPageScroll]);
-
   // Minimizar (voltar pro modo compacto)
   function collapseMap() {
-    stopPageScroll();
     closeChat();
     setShowGroups(false);
     setShowForecast(false);
@@ -1003,11 +970,23 @@ export function ComunidadeMapa() {
                   <span className="text-[11px] md:text-sm text-white font-medium tabular-nums">{DEMO_RIDERS.length} riders no vento agora</span>
                 </div>
 
-                {/* Vento + grupos (topo direita) */}
+                {/* Vento + grupos + minimizar (topo direita) */}
                 <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2">
-                    <Wind className="h-3.5 w-3.5 text-[#3fd0f0]" />
-                    <span className="text-[11px] md:text-sm text-white tabular-nums">22 nós, E</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2">
+                      <Wind className="h-3.5 w-3.5 text-[#3fd0f0]" />
+                      <span className="text-[11px] md:text-sm text-white tabular-nums">22 nós, E</span>
+                    </div>
+                    {!isMobile && (
+                      <button
+                        onClick={collapseMap}
+                        aria-label="Minimizar mapa"
+                        title="Minimizar mapa"
+                        className="grid h-9 w-9 place-items-center rounded-full bg-black/50 backdrop-blur border border-white/10 text-white/70 hover:text-white hover:bg-black/70 transition"
+                      >
+                        <Minimize2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowGroups(true)}
@@ -1032,43 +1011,6 @@ export function ComunidadeMapa() {
                   </div>
                 </div>
 
-                {/* Handle de scroll da PÁGINA (borda direita, só desktop expandido) */}
-                {!isMobile && (
-                  <div className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/60 backdrop-blur shadow-lg">
-                    <button
-                      aria-label="Rolar página pra cima"
-                      onPointerDown={(e) => { e.preventDefault(); startPageScroll(-1); }}
-                      onPointerUp={stopPageScroll}
-                      onPointerLeave={stopPageScroll}
-                      onPointerCancel={stopPageScroll}
-                      onClick={() => window.scrollBy({ top: -180, behavior: "smooth" })}
-                      className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 active:bg-white/15 transition"
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </button>
-                    <div className="h-px bg-white/10" />
-                    <button
-                      aria-label="Rolar página pra baixo"
-                      onPointerDown={(e) => { e.preventDefault(); startPageScroll(1); }}
-                      onPointerUp={stopPageScroll}
-                      onPointerLeave={stopPageScroll}
-                      onPointerCancel={stopPageScroll}
-                      onClick={() => window.scrollBy({ top: 180, behavior: "smooth" })}
-                      className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 active:bg-white/15 transition"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                    <div className="h-px bg-white/10" />
-                    <button
-                      aria-label="Minimizar mapa"
-                      onClick={collapseMap}
-                      className="grid h-9 w-9 place-items-center text-white/70 hover:text-white hover:bg-white/10 transition"
-                    >
-                      <Minimize2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-
                 {/* Coordenadas do cursor (rodapé centro, tipo Windy) */}
                 {cursor && !isMobile && !open && (
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-black/55 backdrop-blur border border-white/10 px-2.5 py-1 text-[10px] text-white/65 tabular-nums pointer-events-none">
@@ -1085,7 +1027,7 @@ export function ComunidadeMapa() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.3 }}
-                      className="absolute bottom-3 right-16 md:bottom-4 md:right-20 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
+                      className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
                     >
                       <BrasilInset />
                     </motion.div>
@@ -1111,7 +1053,7 @@ export function ComunidadeMapa() {
                         key="chat"
                         rider={open}
                         onClose={closeChat}
-                        className="absolute right-16 md:right-20 bottom-4 w-[320px] z-20"
+                        className="absolute right-4 bottom-4 w-[320px] z-20"
                         compactHeight
                         groups={groups}
                         onInvite={inviteToGroup}
