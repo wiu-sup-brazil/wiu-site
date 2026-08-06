@@ -1,24 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2 } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Thermometer, Droplets } from "lucide-react";
 
 /**
- * Mapa da comunidade v6 — chat estilo WhatsApp e HUD limpa ao abrir.
+ * Mapa da comunidade v7 — chat WhatsApp + modal "Ver previsão dos picos".
  *
- * Litoral do NE (Fortaleza → Lençóis) com curva realista, riders sobre
- * a areia, mini-mapa do Brasil no canto e zoom até 5x.
- *
- * Ao abrir o chat de um rider no desktop:
- * - Texto "Arrasta pra explorar..." some
- * - Inset do Brasil some
- * - Card do spot aparece à esquerda, chat estilo WhatsApp à direita
- *
- * Chat: fundo branco, header preto, balões cinzas pro outro, balão
- * azul WIU pra mim, avatares circulares, timestamps.
- *
- * DEMO_RIDERS / SPOT_WIND / DEMO_GROUPS são dados de demonstração.
- * Quando o backend existir (Supabase Realtime), troque pelos canais
+ * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS são dados de
+ * demonstração. Quando o backend existir, troque pelos canais reais
  * mantendo o mesmo shape.
  */
 
@@ -70,6 +59,24 @@ const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: n
   "Barra Grande": { avg: 24, gust: 29, dir: "ENE", deg: 67 },
   "Atins": { avg: 26, gust: 33, dir: "ENE", deg: 67 },
   "Lençóis": { avg: 25, gust: 32, dir: "ENE", deg: 67 },
+};
+
+/** Dados de maré e água por spot (demo — quando tiver backend, plugar API real). */
+const SPOT_TIDES: Record<string, { level: string; height: string; next: string; waterTemp: number }> = {
+  "Fortaleza": { level: "Enchendo", height: "1.8m", next: "16:20 · Alta", waterTemp: 27 },
+  "Cumbuco": { level: "Alta", height: "2.1m", next: "13:15 · Vazando", waterTemp: 28 },
+  "Taíba": { level: "Vazando", height: "1.6m", next: "14:40 · Baixa", waterTemp: 28 },
+  "Paracuru": { level: "Alta", height: "2.0m", next: "13:50 · Vazando", waterTemp: 28 },
+  "Flecheiras": { level: "Enchendo", height: "1.5m", next: "15:10 · Alta", waterTemp: 27 },
+  "Mundaú": { level: "Vazando", height: "1.4m", next: "14:25 · Baixa", waterTemp: 27 },
+  "Icaraizinho": { level: "Alta", height: "1.8m", next: "13:30 · Vazando", waterTemp: 28 },
+  "Ilha do Guajiru": { level: "Enchendo", height: "1.7m", next: "15:45 · Alta", waterTemp: 28 },
+  "Preá": { level: "Alta", height: "1.9m", next: "14:00 · Vazando", waterTemp: 29 },
+  "Jericoacoara": { level: "Enchendo", height: "1.8m", next: "15:20 · Alta", waterTemp: 29 },
+  "Tatajuba": { level: "Vazando", height: "1.5m", next: "14:10 · Baixa", waterTemp: 29 },
+  "Barra Grande": { level: "Alta", height: "2.2m", next: "13:40 · Vazando", waterTemp: 29 },
+  "Atins": { level: "Enchendo", height: "1.8m", next: "16:00 · Alta", waterTemp: 28 },
+  "Lençóis": { level: "Alta", height: "2.0m", next: "14:50 · Vazando", waterTemp: 28 },
 };
 
 type Grupo = { id: string; spot: string; rota: string; horario: string; dia: string; confirmados: string[] };
@@ -194,25 +201,17 @@ function BrasilInset() {
     <svg viewBox="0 0 100 100" className="w-full h-full">
       <path
         d="M 25 15 L 40 12 Q 55 10 68 15 Q 78 20 85 30 Q 92 40 90 50 Q 88 62 82 72 Q 75 82 65 88 Q 55 92 45 90 Q 35 88 28 82 Q 18 75 15 65 Q 10 55 12 45 Q 15 30 20 22 Q 22 18 25 15 Z"
-        fill="rgba(255,255,255,0.08)"
-        stroke="rgba(255,255,255,0.35)"
-        strokeWidth="0.6"
-        strokeLinejoin="round"
+        fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round"
       />
       <path
         d="M 55 18 Q 68 16 78 22 Q 87 28 89 38 Q 88 44 82 46 Q 72 45 62 38 Q 55 32 55 24 Q 55 20 55 18 Z"
-        fill="#00b4d8"
-        fillOpacity="0.35"
-        stroke="#3fd0f0"
-        strokeWidth="0.8"
+        fill="#00b4d8" fillOpacity="0.35" stroke="#3fd0f0" strokeWidth="0.8"
       />
       <circle cx="82" cy="28" r="1.6" fill="#39e58c">
         <animate attributeName="r" values="1.6;2.6;1.6" dur="2.2s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="1;0.4;1" dur="2.2s" repeatCount="indefinite" />
       </circle>
-      <text x="50" y="98" fontSize="6" fill="white" fillOpacity="0.55" textAnchor="middle" fontWeight="600" letterSpacing="0.5">
-        NORDESTE
-      </text>
+      <text x="50" y="98" fontSize="6" fill="white" fillOpacity="0.55" textAnchor="middle" fontWeight="600" letterSpacing="0.5">NORDESTE</text>
     </svg>
   );
 }
@@ -224,6 +223,7 @@ export function ComunidadeMapa() {
 
   const [open, setOpen] = useState<Rider | null>(null);
   const [showGroups, setShowGroups] = useState(false);
+  const [showForecast, setShowForecast] = useState(false);
   const [joined, setJoined] = useState<Set<string>>(new Set());
 
   const viewRef = useRef<HTMLDivElement>(null);
@@ -481,7 +481,7 @@ export function ComunidadeMapa() {
               ))}
             </div>
 
-            {/* HUD fixo */}
+            {/* HUD */}
             <div className="absolute top-3 left-3 md:top-6 md:left-6 flex items-center gap-2.5 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 md:px-4 pointer-events-none">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#39e58c] opacity-75" style={{ animation: "wiu-ping 1.8s infinite" }} />
@@ -504,7 +504,6 @@ export function ComunidadeMapa() {
               </button>
             </div>
 
-            {/* Controles de zoom */}
             <div className="absolute bottom-3 left-3 md:bottom-6 md:left-6 flex flex-col items-start gap-2">
               <div className="flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
                 <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
@@ -518,7 +517,6 @@ export function ComunidadeMapa() {
               </div>
             </div>
 
-            {/* Mini-mapa do Brasil — some quando abre o chat */}
             <AnimatePresence>
               {!chatOpenDesktop && (
                 <motion.div
@@ -534,7 +532,6 @@ export function ComunidadeMapa() {
               )}
             </AnimatePresence>
 
-            {/* DESKTOP: painel do spot + chat WhatsApp */}
             <AnimatePresence>
               {open && !isMobile && (
                 <>
@@ -550,24 +547,34 @@ export function ComunidadeMapa() {
           </div>
         </motion.div>
 
-        {/* Texto embaixo — some quando abre o chat */}
+        {/* Botão "Ver previsão dos picos" — centralizado abaixo do mapa */}
         <AnimatePresence>
           {!chatOpenDesktop && (
-            <motion.p
-              key="hint"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+            <motion.div
+              key="forecast-btn"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-5 text-center text-xs text-white/35"
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="mt-6 flex flex-col items-center gap-4"
             >
-              Arrasta pra explorar · duplo clique dá zoom · pontos verdes = riders conectados agora.
-            </motion.p>
+              <button
+                onClick={() => setShowForecast(true)}
+                className="group inline-flex items-center gap-3 rounded-full bg-white/[0.06] backdrop-blur border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:bg-white/[0.12] hover:border-[#3fd0f0]/50 transition-all shadow-lg"
+              >
+                <CloudSun className="h-4 w-4 text-[#3fd0f0]" />
+                Ver previsão dos picos
+                <span className="text-white/40 group-hover:text-[#3fd0f0] transition-colors">→</span>
+              </button>
+              <p className="text-center text-xs text-white/35">
+                Arrasta pra explorar · duplo clique dá zoom · pontos verdes = riders conectados agora.
+              </p>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* MOBILE: chat tela cheia com mapa embaçado atrás */}
+      {/* MOBILE: chat rider tela cheia */}
       {isMobile && typeof document !== "undefined" && createPortal(
         <AnimatePresence>
           {open && (
@@ -665,7 +672,190 @@ export function ComunidadeMapa() {
         </AnimatePresence>,
         document.body
       )}
+
+      {/* MODAL PREVISÃO DOS PICOS */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {showForecast && <ForecastModal onClose={() => setShowForecast(false)} />}
+        </AnimatePresence>,
+        document.body
+      )}
     </section>
+  );
+}
+
+/* MODAL — Previsão dos picos: busca + grid de cards com vento, rajada, maré, água */
+function ForecastModal({ onClose }: { onClose: () => void }) {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return SPOTS.map((s) => s.name);
+    return SPOTS.map((s) => s.name).filter((n) => n.toLowerCase().includes(q));
+  }, [query]);
+
+  return (
+    <motion.div
+      key="forecast"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[140] flex items-end md:items-center justify-center p-0 md:p-6"
+      style={{ background: "rgba(4,14,18,0.7)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: "spring", damping: 28, stiffness: 280 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full md:max-w-4xl max-h-[90vh] flex flex-col rounded-t-3xl md:rounded-3xl border border-white/15 bg-[#0c1a20] shadow-2xl overflow-hidden"
+      >
+        {/* Header sticky */}
+        <div className="flex items-center justify-between bg-[#0c1a20] px-6 py-5 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#3fd0f0]/15 border border-[#3fd0f0]/25">
+              <CloudSun className="h-5 w-5 text-[#3fd0f0]" />
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">Previsão em tempo real</div>
+              <h3 className="font-semibold text-white text-lg leading-tight">Picos do Nordeste</h3>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Busca */}
+        <div className="px-6 pt-5 pb-4 shrink-0">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar pico (ex: Jericoacoara, Cumbuco…)"
+              className="w-full rounded-full bg-white/[0.06] border border-white/15 pl-11 pr-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-[#3fd0f0]/50 focus:bg-white/[0.08] transition"
+            />
+          </div>
+          <div className="mt-3 text-[11px] text-white/45">
+            {filtered.length === 0
+              ? "Nenhum pico encontrado com esse nome."
+              : `${filtered.length} pico${filtered.length > 1 ? "s" : ""} · vento agora e próxima maré`}
+          </div>
+        </div>
+
+        {/* Grid de cards */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          {filtered.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filtered.map((name) => (
+                <SpotForecastCard key={name} name={name} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 text-white/40">
+              <Search className="h-8 w-8 mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Tente outro nome — nossos picos cobrem CE, PI e MA.</p>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-white/30">
+            <span className="h-px w-8 bg-white/20" />
+            Atualizado agora · dados demonstrativos
+            <span className="h-px w-8 bg-white/20" />
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/** Card individual de previsão de um spot — dentro do modal. */
+function SpotForecastCard({ name }: { name: string }) {
+  const w = SPOT_WIND[name] || { avg: 20, gust: 25, dir: "E", deg: 90 };
+  const t = SPOT_TIDES[name] || { level: "—", height: "—", next: "—", waterTemp: 27 };
+
+  const tideColor = t.level === "Alta" ? "#3fd0f0" : t.level === "Baixa" ? "#f5a623" : t.level === "Enchendo" ? "#39e58c" : "#f77c5b";
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:border-[#3fd0f0]/40 hover:bg-white/[0.05] transition-all"
+    >
+      {/* Header do card */}
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/8">
+        <div className="flex items-center gap-2 min-w-0">
+          <MapPin className="h-3.5 w-3.5 text-[#3fd0f0] shrink-0" />
+          <span className="font-semibold text-white text-sm truncate">{name}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-white/50 shrink-0">
+          <Navigation2 className="h-3 w-3" style={{ transform: `rotate(${w.deg}deg)` }} />
+          {w.dir}
+        </div>
+      </div>
+
+      {/* Vento */}
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-[9px] uppercase tracking-[0.16em] text-white/45 font-semibold">Vento médio</div>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-[#39e58c] tabular-nums">{w.avg}</span>
+            <span className="text-[10px] text-white/50">nós</span>
+          </div>
+        </div>
+        <div>
+          <div className="text-[9px] uppercase tracking-[0.16em] text-white/45 font-semibold">Rajada</div>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-[#3fd0f0] tabular-nums">{w.gust}</span>
+            <span className="text-[10px] text-white/50">nós</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de intensidade do vento */}
+      <div className="mt-2.5 h-1 rounded-full overflow-hidden bg-white/8">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${Math.min(100, (w.avg / 40) * 100)}%`, background: "linear-gradient(90deg,#18b26b,#a5d922,#3fd0f0)" }}
+        />
+      </div>
+
+      {/* Maré e água */}
+      <div className="mt-3 pt-3 border-t border-white/8 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+            <Waves className="h-3 w-3" />
+            Maré
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: tideColor }} />
+            <span className="text-xs font-semibold text-white">{t.level}</span>
+            <span className="text-[10px] text-white/45 tabular-nums">{t.height}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] text-white/45">
+          <div className="flex items-center gap-1.5">
+            <CalendarClock className="h-3 w-3" />
+            Próxima
+          </div>
+          <span className="tabular-nums">{t.next}</span>
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] text-white/45">
+          <div className="flex items-center gap-1.5">
+            <Droplets className="h-3 w-3" />
+            Água
+          </div>
+          <span className="tabular-nums font-semibold text-white/70">{t.waterTemp}°C</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -692,7 +882,6 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
 
   const inner = (
     <>
-      {/* Header preto tipo WhatsApp */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#111] shrink-0">
         <div className="relative">
           <div className="grid h-9 w-9 place-items-center rounded-full text-white text-sm font-bold"
@@ -710,7 +899,6 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
         </button>
       </div>
 
-      {/* Área de mensagens com fundo bege pontilhado (padrão WhatsApp) */}
       <div
         ref={boxRef}
         className={`${full ? "flex-1" : "h-64"} overflow-y-auto px-3.5 py-3 space-y-2`}
@@ -725,9 +913,7 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
             <p className="text-[11px] text-[#0c1a20]/50 leading-relaxed">
               Diz um "e aí, como tá o vento em {rider.spot}?"
             </p>
-            <p className="text-[10px] text-[#0c1a20]/35 mt-1.5">
-              A conversa some quando fechar.
-            </p>
+            <p className="text-[10px] text-[#0c1a20]/35 mt-1.5">A conversa some quando fechar.</p>
           </div>
         )}
 
@@ -775,8 +961,8 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
         )}
       </div>
 
-      {/* Barra de input branca */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-black/8 shrink-0" style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}>
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-black/8 shrink-0"
+        style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
