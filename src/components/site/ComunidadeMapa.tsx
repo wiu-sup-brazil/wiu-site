@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarClock, Navigation2 } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2 } from "lucide-react";
 
 /**
- * Mapa da comunidade v5 — geografia realista.
+ * Mapa da comunidade v6 — chat estilo WhatsApp e HUD limpa ao abrir.
  *
- * Litoral do NE brasileiro: curva característica saindo de Fortaleza (SE)
- * subindo pra Cumbuco/Paracuru, inflexão em Jericoacoara, seguindo
- * horizontal por Preá/Guajiru/Barra Grande até Atins/Lençóis (NW).
+ * Litoral do NE (Fortaleza → Lençóis) com curva realista, riders sobre
+ * a areia, mini-mapa do Brasil no canto e zoom até 5x.
  *
- * - Inset do Brasil no canto: dá contexto de onde a WIU atua
- * - Reentrâncias e saliências na costa (delta dos Lençóis, baía de
- *   Camocim, ponta do Cumbuco, baía de Fortaleza)
- * - Riders posicionados EXATAMENTE sobre a faixa de areia
- * - Zoom até 5x para explorar cada spot em detalhe
+ * Ao abrir o chat de um rider no desktop:
+ * - Texto "Arrasta pra explorar..." some
+ * - Inset do Brasil some
+ * - Card do spot aparece à esquerda, chat estilo WhatsApp à direita
+ *
+ * Chat: fundo branco, header preto, balões cinzas pro outro, balão
+ * azul WIU pra mim, avatares circulares, timestamps.
  *
  * DEMO_RIDERS / SPOT_WIND / DEMO_GROUPS são dados de demonstração.
  * Quando o backend existir (Supabase Realtime), troque pelos canais
@@ -23,10 +24,6 @@ import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CalendarCl
 
 type Rider = { id: string; name: string; spot: string; x: number; y: number; level: string };
 
-/**
- * SPOTS posicionados sobre o LITORAL — a linha real de areia.
- * Rota Fortaleza → Lençóis Maranhenses, seguindo a curva da costa.
- */
 const SPOTS = [
   { name: "Lençóis", x: 5.5, y: 22 },
   { name: "Atins", x: 10, y: 21.5 },
@@ -44,10 +41,6 @@ const SPOTS = [
   { name: "Fortaleza", x: 80, y: 57.5 },
 ];
 
-/**
- * Riders posicionados sobre a AREIA — em cima do spot deles ou ao lado.
- * Não podem cair no mar nem no interior.
- */
 const DEMO_RIDERS: Rider[] = [
   { id: "r1", name: "Léo", spot: "Cumbuco", x: 71, y: 53, level: "Avançado" },
   { id: "r2", name: "Marina", spot: "Cumbuco", x: 73, y: 54.5, level: "Intermediário" },
@@ -101,6 +94,11 @@ function useIsMobile() {
   }, []);
   return m;
 }
+
+const nowTime = () => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
 
 function Compass({ label, value, deg, accent }: { label: string; value: number; deg: number; accent: string }) {
   return (
@@ -191,47 +189,23 @@ function WindParticles() {
   );
 }
 
-/**
- * Mini-mapa do Brasil no canto — dá contexto geográfico:
- * "A WIU atua aqui: costa do Nordeste."
- */
 function BrasilInset() {
   return (
     <svg viewBox="0 0 100 100" className="w-full h-full">
-      {/* Contorno simplificado do Brasil */}
       <path
-        d="M 25 15
-           L 40 12 Q 55 10 68 15
-           Q 78 20 85 30
-           Q 92 40 90 50
-           Q 88 62 82 72
-           Q 75 82 65 88
-           Q 55 92 45 90
-           Q 35 88 28 82
-           Q 18 75 15 65
-           Q 10 55 12 45
-           Q 15 30 20 22
-           Q 22 18 25 15 Z"
+        d="M 25 15 L 40 12 Q 55 10 68 15 Q 78 20 85 30 Q 92 40 90 50 Q 88 62 82 72 Q 75 82 65 88 Q 55 92 45 90 Q 35 88 28 82 Q 18 75 15 65 Q 10 55 12 45 Q 15 30 20 22 Q 22 18 25 15 Z"
         fill="rgba(255,255,255,0.08)"
         stroke="rgba(255,255,255,0.35)"
         strokeWidth="0.6"
         strokeLinejoin="round"
       />
-      {/* Área do NE destacada em azul WIU */}
       <path
-        d="M 55 18
-           Q 68 16 78 22
-           Q 87 28 89 38
-           Q 88 44 82 46
-           Q 72 45 62 38
-           Q 55 32 55 24
-           Q 55 20 55 18 Z"
+        d="M 55 18 Q 68 16 78 22 Q 87 28 89 38 Q 88 44 82 46 Q 72 45 62 38 Q 55 32 55 24 Q 55 20 55 18 Z"
         fill="#00b4d8"
         fillOpacity="0.35"
         stroke="#3fd0f0"
         strokeWidth="0.8"
       />
-      {/* Ponto pulsante no NE (Ceará) */}
       <circle cx="82" cy="28" r="1.6" fill="#39e58c">
         <animate attributeName="r" values="1.6;2.6;1.6" dur="2.2s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="1;0.4;1" dur="2.2s" repeatCount="indefinite" />
@@ -360,6 +334,7 @@ export function ComunidadeMapa() {
   }
 
   const inv = 1 / t.s;
+  const chatOpenDesktop = open && !isMobile;
 
   return (
     <section id="comunidade" ref={sectionRef} className="relative overflow-hidden"
@@ -397,10 +372,8 @@ export function ComunidadeMapa() {
             onDoubleClick={onDoubleClick}
           >
             <div className="absolute inset-0" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.s})`, transformOrigin: "0 0" }}>
-              {/* Oceano com gradiente realista — turquesa perto da costa, azul profundo longe */}
               <div className="absolute inset-0" style={{ background: "linear-gradient(200deg, #0a2f47 0%, #0e4a6b 40%, #1174a3 75%, #1a8ec4 100%)" }} />
 
-              {/* Textura de ondas do oceano */}
               <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-30" aria-hidden>
                 <pattern id="ondas" x="0" y="0" width="6" height="4" patternUnits="userSpaceOnUse">
                   <path d="M 0 2 Q 1.5 1 3 2 T 6 2" fill="none" stroke="#3fd0f0" strokeWidth="0.15" opacity="0.4" />
@@ -410,15 +383,6 @@ export function ComunidadeMapa() {
 
               <WindParticles />
 
-              {/*
-                LITORAL DETALHADO — com reentrâncias e saliências reais:
-                — Delta dos Lençóis (esquerda, lagoas azuis características)
-                — Baía de Camocim (reentrância entre Barra Grande e Jericoacoara)
-                — Ponta de Jericoacoara (saliência)
-                — Baía de Icaraí (leve reentrância)
-                — Ponta do Cumbuco (saliência)
-                — Baía de Fortaleza (curva final)
-              */}
               <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
                 <defs>
                   <linearGradient id="terra" x1="0" y1="0" x2="0" y2="1">
@@ -436,49 +400,15 @@ export function ComunidadeMapa() {
                   </radialGradient>
                 </defs>
 
-                {/* Faixa de areia — mais larga, com saliências e reentrâncias */}
                 <path
-                  d="M 0 22
-                     Q 3 21.5 6 21.8
-                     Q 12 20.8 17 20.5
-                     Q 20 20.7 22 21
-                     Q 25 21.8 27.5 21.5
-                     Q 29 21 30 22
-                     Q 32 23.5 34 24
-                     Q 38 26 41 28.5
-                     Q 45 32 48 35
-                     Q 52 39 55 42
-                     Q 59 45 62 47.5
-                     Q 66 50 69 52.5
-                     Q 72 54 74 55
-                     Q 77 56 80 57
-                     Q 88 58.5 100 60
-                     L 100 62 L 0 62 Z"
+                  d="M 0 22 Q 3 21.5 6 21.8 Q 12 20.8 17 20.5 Q 20 20.7 22 21 Q 25 21.8 27.5 21.5 Q 29 21 30 22 Q 32 23.5 34 24 Q 38 26 41 28.5 Q 45 32 48 35 Q 52 39 55 42 Q 59 45 62 47.5 Q 66 50 69 52.5 Q 72 54 74 55 Q 77 56 80 57 Q 88 58.5 100 60 L 100 62 L 0 62 Z"
                   fill="url(#areia)"
                 />
-
-                {/* Terra (verde) — logo atrás da areia */}
                 <path
-                  d="M 0 25
-                     Q 3 24.5 6 24.8
-                     Q 12 24 17 23.8
-                     Q 20 24 22 24.3
-                     Q 25 25 27.5 25
-                     Q 29 24.5 30 25.5
-                     Q 32 27 34 27.5
-                     Q 38 29.5 41 32
-                     Q 45 35.5 48 38.5
-                     Q 52 42.5 55 45.5
-                     Q 59 48.5 62 51
-                     Q 66 53.5 69 55.5
-                     Q 72 57 74 58
-                     Q 77 59 80 59.5
-                     Q 88 60.5 100 61.5
-                     L 100 62 L 0 62 Z"
+                  d="M 0 25 Q 3 24.5 6 24.8 Q 12 24 17 23.8 Q 20 24 22 24.3 Q 25 25 27.5 25 Q 29 24.5 30 25.5 Q 32 27 34 27.5 Q 38 29.5 41 32 Q 45 35.5 48 38.5 Q 52 42.5 55 45.5 Q 59 48.5 62 51 Q 66 53.5 69 55.5 Q 72 57 74 58 Q 77 59 80 59.5 Q 88 60.5 100 61.5 L 100 62 L 0 62 Z"
                   fill="url(#terra)"
                 />
 
-                {/* Delta dos Lençóis — múltiplas lagoas azuis características */}
                 <circle cx="4" cy="27" r="6" fill="url(#delta)" />
                 <ellipse cx="2" cy="26" rx="1.5" ry="0.7" fill="#5fd8f5" opacity="0.6" />
                 <ellipse cx="4.5" cy="27.5" rx="1.2" ry="0.6" fill="#5fd8f5" opacity="0.55" />
@@ -487,17 +417,14 @@ export function ComunidadeMapa() {
                 <ellipse cx="6" cy="28.5" rx="0.7" ry="0.4" fill="#5fd8f5" opacity="0.5" />
                 <ellipse cx="8.5" cy="28" rx="0.6" ry="0.35" fill="#5fd8f5" opacity="0.4" />
 
-                {/* Rios cortando a terra — Rio Parnaíba e afluentes */}
                 <path d="M 15 62 Q 14 55 12 48 Q 11 42 13 35" fill="none" stroke="#3fd0f0" strokeWidth="0.3" opacity="0.35" />
                 <path d="M 45 62 Q 44 55 42 50" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
                 <path d="M 75 62 Q 74 60 72 58" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
 
-                {/* Labels de estados no interior */}
                 <text x="10" y="42" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">MARANHÃO</text>
                 <text x="30" y="55" fontSize="1.4" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.3">PIAUÍ</text>
                 <text x="60" y="58" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">CEARÁ</text>
 
-                {/* Rosa dos ventos discreta */}
                 <g transform="translate(88 10)" opacity="0.35">
                   <circle cx="0" cy="0" r="3.5" fill="none" stroke="#ffffff" strokeWidth="0.15" />
                   <path d="M0 -3.5 L0.5 -0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" />
@@ -507,7 +434,6 @@ export function ComunidadeMapa() {
                   <text x="0" y="-4.5" fontSize="1.4" fill="#ffffff" textAnchor="middle" fontWeight="700">N</text>
                 </g>
 
-                {/* Setinhas indicando a direção do vento predominante (alísios de leste) */}
                 <g opacity="0.25" fill="none" stroke="#3fd0f0" strokeWidth="0.15" strokeLinecap="round">
                   <path d="M 95 15 L 85 15 M 88 13.5 L 85 15 L 88 16.5" />
                   <path d="M 95 8 L 87 8 M 89.5 6.7 L 87 8 L 89.5 9.3" />
@@ -578,7 +504,7 @@ export function ComunidadeMapa() {
               </button>
             </div>
 
-            {/* Controles de zoom + indicador */}
+            {/* Controles de zoom */}
             <div className="absolute bottom-3 left-3 md:bottom-6 md:left-6 flex flex-col items-start gap-2">
               <div className="flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
                 <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
@@ -592,30 +518,53 @@ export function ComunidadeMapa() {
               </div>
             </div>
 
-            {/* Mini-mapa do Brasil no canto inferior direito — dá contexto geográfico */}
-            <div className="absolute bottom-3 right-3 md:bottom-6 md:right-6 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5">
-              <BrasilInset />
-            </div>
+            {/* Mini-mapa do Brasil — some quando abre o chat */}
+            <AnimatePresence>
+              {!chatOpenDesktop && (
+                <motion.div
+                  key="inset"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute bottom-3 right-3 md:bottom-6 md:right-6 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
+                >
+                  <BrasilInset />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {/* DESKTOP: painel do spot + chat */}
+            {/* DESKTOP: painel do spot + chat WhatsApp */}
             <AnimatePresence>
               {open && !isMobile && (
                 <>
                   <motion.div key="spot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                     transition={{ type: "spring", damping: 26, stiffness: 300 }}
-                    className="absolute top-24 left-6 w-72">
+                    className="absolute top-24 left-6 w-72 z-20">
                     <SpotPanel spot={open.spot} />
                   </motion.div>
-                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute top-24 right-6 w-[calc(100%-2rem)] max-w-xs" />
+                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute top-24 right-6 w-[calc(100%-2rem)] max-w-xs z-20" />
                 </>
               )}
             </AnimatePresence>
           </div>
         </motion.div>
 
-        <p className="mt-5 text-center text-xs text-white/35">
-          Arrasta pra explorar · duplo clique dá zoom · pontos verdes = riders conectados agora.
-        </p>
+        {/* Texto embaixo — some quando abre o chat */}
+        <AnimatePresence>
+          {!chatOpenDesktop && (
+            <motion.p
+              key="hint"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mt-5 text-center text-xs text-white/35"
+            >
+              Arrasta pra explorar · duplo clique dá zoom · pontos verdes = riders conectados agora.
+            </motion.p>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* MOBILE: chat tela cheia com mapa embaçado atrás */}
@@ -630,7 +579,7 @@ export function ComunidadeMapa() {
               </motion.div>
               <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                className="mt-4 flex-1 flex flex-col rounded-t-3xl overflow-hidden border-t border-white/15 bg-[#0c1a20]">
+                className="mt-4 flex-1 flex flex-col rounded-t-3xl overflow-hidden">
                 <ChatCard rider={open} onClose={() => setOpen(null)} full />
               </motion.div>
             </motion.div>
@@ -720,72 +669,144 @@ export function ComunidadeMapa() {
   );
 }
 
+/* Chat estilo WhatsApp — fundo branco, header preto, balões */
 function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onClose: () => void; className?: string; full?: boolean }) {
-  const [msgs, setMsgs] = useState<{ me: boolean; text: string }[]>([]);
+  const [msgs, setMsgs] = useState<{ me: boolean; text: string; time: string }[]>([]);
   const [text, setText] = useState("");
+  const [typing, setTyping] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { boxRef.current?.scrollTo({ top: 9e9, behavior: "smooth" }); }, [msgs]);
+  useEffect(() => { boxRef.current?.scrollTo({ top: 9e9, behavior: "smooth" }); }, [msgs, typing]);
 
   function send() {
     const tt = text.trim();
     if (!tt) return;
-    setMsgs((m) => [...m, { me: true, text: tt }]);
+    setMsgs((m) => [...m, { me: true, text: tt, time: nowTime() }]);
     setText("");
+    setTyping(true);
     setTimeout(() => {
-      setMsgs((m) => [...m, { me: false, text: `Opa! Aqui em ${rider.spot} o vento tá firme. Cola aqui! 🤙` }]);
-    }, 1200);
+      setTyping(false);
+      setMsgs((m) => [...m, { me: false, text: `Opa! Aqui em ${rider.spot} o vento tá firme. Cola aqui! 🤙`, time: nowTime() }]);
+    }, 1400);
   }
 
   const inner = (
     <>
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 shrink-0">
+      {/* Header preto tipo WhatsApp */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-[#111] shrink-0">
         <div className="relative">
-          <div className="grid h-9 w-9 place-items-center rounded-full bg-[#134] text-sm font-semibold text-white">{rider.name.charAt(0)}</div>
-          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#39e58c] ring-2 ring-[#0c1a20]" />
+          <div className="grid h-9 w-9 place-items-center rounded-full text-white text-sm font-bold"
+            style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
+            {rider.name.charAt(0)}
+          </div>
+          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#39e58c] ring-2 ring-[#111]" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-white truncate">{rider.name}</div>
           <div className="text-[11px] text-white/50">{rider.spot} · {rider.level}</div>
         </div>
-        <button onClick={onClose} aria-label="Fechar conversa" className="rounded-full p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition">
+        <button onClick={onClose} aria-label="Fechar conversa" className="rounded-full p-1.5 text-white/60 hover:text-white hover:bg-white/10 transition">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div ref={boxRef} className={`${full ? "flex-1" : "h-44"} overflow-y-auto px-4 py-3 space-y-2`}>
-        {msgs.length === 0 && (
-          <p className="text-xs text-white/40 pt-2">
-            Diz um "e aí, como tá o vento em {rider.spot}?" — a conversa some quando fechar.
-          </p>
+      {/* Área de mensagens com fundo bege pontilhado (padrão WhatsApp) */}
+      <div
+        ref={boxRef}
+        className={`${full ? "flex-1" : "h-64"} overflow-y-auto px-3.5 py-3 space-y-2`}
+        style={{
+          background: "#f7f5f0",
+          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(13,13,13,0.05) 1px, transparent 0)",
+          backgroundSize: "14px 14px",
+        }}
+      >
+        {msgs.length === 0 && !typing && (
+          <div className="text-center py-6 px-4">
+            <p className="text-[11px] text-[#0c1a20]/50 leading-relaxed">
+              Diz um "e aí, como tá o vento em {rider.spot}?"
+            </p>
+            <p className="text-[10px] text-[#0c1a20]/35 mt-1.5">
+              A conversa some quando fechar.
+            </p>
+          </div>
         )}
+
         {msgs.map((m, i) => (
-          <div key={i} className={`flex ${m.me ? "justify-end" : "justify-start"}`}>
-            <span className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-snug ${m.me ? "bg-[#00b4d8] text-white rounded-br-sm" : "bg-white/10 text-white/90 rounded-bl-sm"}`}>
-              {m.text}
-            </span>
+          <div key={i} className={`flex items-end gap-1.5 ${m.me ? "justify-end" : "justify-start"}`}>
+            {!m.me && (
+              <div className="grid h-6 w-6 place-items-center rounded-full text-white text-[10px] font-bold shrink-0 mb-0.5"
+                style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
+                {rider.name.charAt(0)}
+              </div>
+            )}
+            <div
+              className={`max-w-[78%] px-3 py-2 text-[13px] leading-snug ${
+                m.me
+                  ? "bg-[#00b4d8] text-white rounded-2xl rounded-br-sm"
+                  : "bg-white text-[#0c1a20] rounded-2xl rounded-bl-sm border border-black/5"
+              }`}
+              style={!m.me ? { boxShadow: "0 1px 2px rgba(0,0,0,0.04)" } : undefined}
+            >
+              {!m.me && <div className="text-[10px] font-semibold text-[#00b4d8] mb-0.5">{rider.name}</div>}
+              <div>{m.text}</div>
+              <div className={`mt-1 flex items-center gap-1 text-[9px] ${m.me ? "text-white/75 justify-end" : "text-[#0c1a20]/40 justify-end"}`}>
+                {m.time}
+                {m.me && <CheckCheck className="h-3 w-3" />}
+              </div>
+            </div>
           </div>
         ))}
+
+        {typing && (
+          <div className="flex items-end gap-1.5 justify-start">
+            <div className="grid h-6 w-6 place-items-center rounded-full text-white text-[10px] font-bold shrink-0 mb-0.5"
+              style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
+              {rider.name.charAt(0)}
+            </div>
+            <div className="bg-white rounded-2xl rounded-bl-sm border border-black/5 px-3.5 py-2.5"
+              style={{ boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+              <div className="flex gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#0c1a20]/30 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-white/10 px-3 py-2.5 shrink-0" style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}>
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Escreve aí…" className="flex-1 bg-transparent text-[13px] text-white placeholder:text-white/35 outline-none px-1" />
-        <button onClick={send} aria-label="Enviar" disabled={!text.trim()}
-          className="grid h-8 w-8 place-items-center rounded-full bg-[#00b4d8] text-white hover:brightness-110 transition disabled:opacity-40">
-          <Send className="h-3.5 w-3.5" />
+      {/* Barra de input branca */}
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-black/8 shrink-0" style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder="Digite uma mensagem…"
+          className="flex-1 bg-[#f2f0ea] rounded-full px-4 py-2 text-[13px] text-[#0c1a20] placeholder:text-[#0c1a20]/40 outline-none border border-black/5 focus:border-[#00b4d8]/40 transition"
+        />
+        <button
+          onClick={send}
+          aria-label="Enviar"
+          disabled={!text.trim()}
+          className="grid h-9 w-9 place-items-center rounded-full bg-[#00b4d8] text-white hover:brightness-110 transition disabled:opacity-40 shrink-0"
+        >
+          <Send className="h-4 w-4" />
         </button>
       </div>
     </>
   );
 
-  if (full) return <div className="flex h-full flex-col">{inner}</div>;
+  if (full) return <div className="flex h-full flex-col bg-white">{inner}</div>;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 24 }}
       transition={{ type: "spring", damping: 26, stiffness: 300 }}
-      className={`rounded-2xl overflow-hidden border border-white/15 bg-[#0c1a20]/95 backdrop-blur-xl shadow-2xl ${className}`}>
+      className={`overflow-hidden bg-white ${className}`}
+      style={{ borderRadius: "18px", boxShadow: "0 25px 70px -10px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)" }}
+    >
       {inner}
     </motion.div>
   );
