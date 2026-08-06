@@ -1,82 +1,156 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Thermometer, Droplets } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets } from "lucide-react";
 
 /**
- * Mapa da comunidade v7 — chat WhatsApp + modal "Ver previsão dos picos".
+ * Mapa da comunidade v8 — litoral do NE completo, do Maranhão à Bahia.
  *
- * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS são dados de
- * demonstração. Quando o backend existir, troque pelos canais reais
- * mantendo o mesmo shape.
+ * Cobre 25 spots de kitesurf/wing foil da costa nordestina, com curva
+ * em L (horizontal MA→CE, vertical CE→BA passando por RN, PB, PE, AL, SE).
+ *
+ * Modal de previsão em fundo branco. Chat estilo WhatsApp mantido.
+ * Sem em-dashes (— substituído por vírgula).
+ *
+ * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS são dados demo.
+ * Trocar por Supabase Realtime quando o backend existir.
  */
 
 type Rider = { id: string; name: string; spot: string; x: number; y: number; level: string };
+type Spot = { name: string; x: number; y: number; principal?: boolean };
 
-const SPOTS = [
-  { name: "Lençóis", x: 5.5, y: 22 },
-  { name: "Atins", x: 10, y: 21.5 },
-  { name: "Barra Grande", x: 17, y: 21 },
-  { name: "Tatajuba", x: 23, y: 21.5 },
-  { name: "Jericoacoara", x: 28.5, y: 22.5 },
-  { name: "Preá", x: 33, y: 24.5 },
-  { name: "Ilha do Guajiru", x: 38, y: 28 },
-  { name: "Icaraizinho", x: 43, y: 32 },
-  { name: "Mundaú", x: 48, y: 36 },
-  { name: "Flecheiras", x: 53, y: 40 },
-  { name: "Paracuru", x: 59, y: 44.5 },
-  { name: "Taíba", x: 65, y: 49 },
-  { name: "Cumbuco", x: 72, y: 53.5 },
-  { name: "Fortaleza", x: 80, y: 57.5 },
+const SPOTS: Spot[] = [
+  // MARANHÃO
+  { name: "Lençóis", x: 3, y: 17, principal: true },
+  { name: "Atins", x: 8, y: 17.3 },
+
+  // PIAUÍ
+  { name: "Barra Grande", x: 14, y: 17.5 },
+
+  // CEARÁ NORTE (litoral horizontal)
+  { name: "Tatajuba", x: 19, y: 17.8 },
+  { name: "Jericoacoara", x: 24, y: 17.8, principal: true },
+  { name: "Preá", x: 27, y: 18.5 },
+  { name: "Ilha do Guajiru", x: 31, y: 19.5 },
+  { name: "Icaraizinho", x: 35, y: 20.5 },
+  { name: "Mundaú", x: 38, y: 21.5 },
+  { name: "Flecheiras", x: 42, y: 22.5 },
+  { name: "Paracuru", x: 46, y: 24 },
+  { name: "Taíba", x: 49, y: 25.5 },
+  { name: "Cumbuco", x: 52, y: 27 },
+  { name: "Fortaleza", x: 55, y: 29, principal: true },
+
+  // RIO GRANDE DO NORTE (curva pra sul)
+  { name: "Galinhos", x: 59, y: 30.5 },
+  { name: "S. M. Gostoso", x: 62, y: 32 },
+  { name: "Natal", x: 63, y: 35, principal: true },
+
+  // PARAÍBA
+  { name: "Cabedelo", x: 63, y: 39 },
+  { name: "João Pessoa", x: 63, y: 40.5 },
+
+  // PERNAMBUCO
+  { name: "Porto de Galinhas", x: 62, y: 44, principal: true },
+
+  // ALAGOAS
+  { name: "Maragogi", x: 61, y: 47 },
+  { name: "Maceió", x: 60, y: 49, principal: true },
+
+  // SERGIPE / BAHIA
+  { name: "Mangue Seco", x: 58, y: 52 },
+  { name: "Praia do Forte", x: 55, y: 55 },
+  { name: "Salvador", x: 52, y: 57, principal: true },
+  { name: "Prado", x: 48, y: 60 },
 ];
 
 const DEMO_RIDERS: Rider[] = [
-  { id: "r1", name: "Léo", spot: "Cumbuco", x: 71, y: 53, level: "Avançado" },
-  { id: "r2", name: "Marina", spot: "Cumbuco", x: 73, y: 54.5, level: "Intermediário" },
-  { id: "r3", name: "Pedrão", spot: "Taíba", x: 65, y: 49, level: "Avançado" },
-  { id: "r4", name: "Ana", spot: "Paracuru", x: 59, y: 44, level: "Iniciante" },
-  { id: "r5", name: "Duda", spot: "Flecheiras", x: 53, y: 39.5, level: "Avançado" },
-  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 43, y: 31.5, level: "Intermediário" },
-  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 38, y: 27.5, level: "Avançado" },
-  { id: "r8", name: "Thibaut", spot: "Preá", x: 33, y: 24, level: "Avançado" },
-  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 28.5, y: 22, level: "Intermediário" },
-  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 17, y: 20.5, level: "Intermediário" },
-  { id: "r11", name: "Bia", spot: "Atins", x: 10, y: 21, level: "Avançado" },
+  // CE
+  { id: "r1", name: "Léo", spot: "Cumbuco", x: 51.5, y: 26.5, level: "Avançado" },
+  { id: "r2", name: "Marina", spot: "Cumbuco", x: 52.5, y: 27.5, level: "Intermediário" },
+  { id: "r3", name: "Pedrão", spot: "Taíba", x: 49, y: 25.2, level: "Avançado" },
+  { id: "r4", name: "Ana", spot: "Paracuru", x: 46, y: 23.7, level: "Iniciante" },
+  { id: "r5", name: "Duda", spot: "Flecheiras", x: 42, y: 22.2, level: "Avançado" },
+  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 35, y: 20.2, level: "Intermediário" },
+  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 31, y: 19.2, level: "Avançado" },
+  { id: "r8", name: "Thibaut", spot: "Preá", x: 27, y: 18.2, level: "Avançado" },
+  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 24, y: 17.5, level: "Intermediário" },
+  // PI/MA
+  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 14, y: 17.2, level: "Intermediário" },
+  { id: "r11", name: "Bia", spot: "Atins", x: 8, y: 17, level: "Avançado" },
+  // RN
+  { id: "r12", name: "Fred", spot: "Natal", x: 63, y: 34.7, level: "Avançado" },
+  // PE
+  { id: "r13", name: "Camila", spot: "Porto de Galinhas", x: 62, y: 43.7, level: "Intermediário" },
+  // AL
+  { id: "r14", name: "Vinícius", spot: "Maceió", x: 60, y: 48.7, level: "Avançado" },
+  // BA
+  { id: "r15", name: "Larissa", spot: "Salvador", x: 52, y: 56.7, level: "Iniciante" },
+  { id: "r16", name: "Bruno", spot: "Praia do Forte", x: 55, y: 54.7, level: "Avançado" },
 ];
 
 const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: number }> = {
-  "Fortaleza": { avg: 18, gust: 23, dir: "SSE", deg: 157 },
-  "Cumbuco": { avg: 22, gust: 27, dir: "E", deg: 90 },
-  "Taíba": { avg: 23, gust: 29, dir: "ESE", deg: 112 },
-  "Paracuru": { avg: 21, gust: 26, dir: "E", deg: 90 },
-  "Flecheiras": { avg: 20, gust: 24, dir: "ENE", deg: 67 },
-  "Mundaú": { avg: 21, gust: 25, dir: "E", deg: 90 },
-  "Icaraizinho": { avg: 24, gust: 29, dir: "E", deg: 90 },
-  "Ilha do Guajiru": { avg: 25, gust: 30, dir: "E", deg: 90 },
-  "Preá": { avg: 26, gust: 32, dir: "E", deg: 90 },
-  "Jericoacoara": { avg: 24, gust: 30, dir: "E", deg: 90 },
-  "Tatajuba": { avg: 25, gust: 31, dir: "E", deg: 90 },
-  "Barra Grande": { avg: 24, gust: 29, dir: "ENE", deg: 67 },
-  "Atins": { avg: 26, gust: 33, dir: "ENE", deg: 67 },
+  // MA / PI
   "Lençóis": { avg: 25, gust: 32, dir: "ENE", deg: 67 },
+  "Atins": { avg: 26, gust: 33, dir: "ENE", deg: 67 },
+  "Barra Grande": { avg: 24, gust: 29, dir: "ENE", deg: 67 },
+  // CE norte
+  "Tatajuba": { avg: 25, gust: 31, dir: "E", deg: 90 },
+  "Jericoacoara": { avg: 24, gust: 30, dir: "E", deg: 90 },
+  "Preá": { avg: 26, gust: 32, dir: "E", deg: 90 },
+  "Ilha do Guajiru": { avg: 25, gust: 30, dir: "E", deg: 90 },
+  "Icaraizinho": { avg: 24, gust: 29, dir: "E", deg: 90 },
+  "Mundaú": { avg: 21, gust: 25, dir: "E", deg: 90 },
+  "Flecheiras": { avg: 20, gust: 24, dir: "ENE", deg: 67 },
+  "Paracuru": { avg: 21, gust: 26, dir: "E", deg: 90 },
+  "Taíba": { avg: 23, gust: 29, dir: "ESE", deg: 112 },
+  "Cumbuco": { avg: 22, gust: 27, dir: "E", deg: 90 },
+  "Fortaleza": { avg: 18, gust: 23, dir: "SSE", deg: 157 },
+  // RN
+  "Galinhos": { avg: 22, gust: 28, dir: "E", deg: 90 },
+  "S. M. Gostoso": { avg: 23, gust: 29, dir: "E", deg: 90 },
+  "Natal": { avg: 20, gust: 25, dir: "SE", deg: 135 },
+  // PB
+  "Cabedelo": { avg: 17, gust: 22, dir: "SE", deg: 135 },
+  "João Pessoa": { avg: 16, gust: 21, dir: "SE", deg: 135 },
+  // PE
+  "Porto de Galinhas": { avg: 18, gust: 24, dir: "SE", deg: 135 },
+  // AL
+  "Maragogi": { avg: 16, gust: 22, dir: "SE", deg: 135 },
+  "Maceió": { avg: 15, gust: 20, dir: "SE", deg: 135 },
+  // SE / BA
+  "Mangue Seco": { avg: 22, gust: 28, dir: "NE", deg: 45 },
+  "Praia do Forte": { avg: 15, gust: 20, dir: "NE", deg: 45 },
+  "Salvador": { avg: 13, gust: 18, dir: "E", deg: 90 },
+  "Prado": { avg: 14, gust: 19, dir: "NE", deg: 45 },
 };
 
-/** Dados de maré e água por spot (demo — quando tiver backend, plugar API real). */
 const SPOT_TIDES: Record<string, { level: string; height: string; next: string; waterTemp: number }> = {
-  "Fortaleza": { level: "Enchendo", height: "1.8m", next: "16:20 · Alta", waterTemp: 27 },
-  "Cumbuco": { level: "Alta", height: "2.1m", next: "13:15 · Vazando", waterTemp: 28 },
-  "Taíba": { level: "Vazando", height: "1.6m", next: "14:40 · Baixa", waterTemp: 28 },
-  "Paracuru": { level: "Alta", height: "2.0m", next: "13:50 · Vazando", waterTemp: 28 },
-  "Flecheiras": { level: "Enchendo", height: "1.5m", next: "15:10 · Alta", waterTemp: 27 },
-  "Mundaú": { level: "Vazando", height: "1.4m", next: "14:25 · Baixa", waterTemp: 27 },
-  "Icaraizinho": { level: "Alta", height: "1.8m", next: "13:30 · Vazando", waterTemp: 28 },
-  "Ilha do Guajiru": { level: "Enchendo", height: "1.7m", next: "15:45 · Alta", waterTemp: 28 },
-  "Preá": { level: "Alta", height: "1.9m", next: "14:00 · Vazando", waterTemp: 29 },
-  "Jericoacoara": { level: "Enchendo", height: "1.8m", next: "15:20 · Alta", waterTemp: 29 },
-  "Tatajuba": { level: "Vazando", height: "1.5m", next: "14:10 · Baixa", waterTemp: 29 },
-  "Barra Grande": { level: "Alta", height: "2.2m", next: "13:40 · Vazando", waterTemp: 29 },
-  "Atins": { level: "Enchendo", height: "1.8m", next: "16:00 · Alta", waterTemp: 28 },
   "Lençóis": { level: "Alta", height: "2.0m", next: "14:50 · Vazando", waterTemp: 28 },
+  "Atins": { level: "Enchendo", height: "1.8m", next: "16:00 · Alta", waterTemp: 28 },
+  "Barra Grande": { level: "Alta", height: "2.2m", next: "13:40 · Vazando", waterTemp: 29 },
+  "Tatajuba": { level: "Vazando", height: "1.5m", next: "14:10 · Baixa", waterTemp: 29 },
+  "Jericoacoara": { level: "Enchendo", height: "1.8m", next: "15:20 · Alta", waterTemp: 29 },
+  "Preá": { level: "Alta", height: "1.9m", next: "14:00 · Vazando", waterTemp: 29 },
+  "Ilha do Guajiru": { level: "Enchendo", height: "1.7m", next: "15:45 · Alta", waterTemp: 28 },
+  "Icaraizinho": { level: "Alta", height: "1.8m", next: "13:30 · Vazando", waterTemp: 28 },
+  "Mundaú": { level: "Vazando", height: "1.4m", next: "14:25 · Baixa", waterTemp: 27 },
+  "Flecheiras": { level: "Enchendo", height: "1.5m", next: "15:10 · Alta", waterTemp: 27 },
+  "Paracuru": { level: "Alta", height: "2.0m", next: "13:50 · Vazando", waterTemp: 28 },
+  "Taíba": { level: "Vazando", height: "1.6m", next: "14:40 · Baixa", waterTemp: 28 },
+  "Cumbuco": { level: "Alta", height: "2.1m", next: "13:15 · Vazando", waterTemp: 28 },
+  "Fortaleza": { level: "Enchendo", height: "1.8m", next: "16:20 · Alta", waterTemp: 27 },
+  "Galinhos": { level: "Alta", height: "1.9m", next: "14:15 · Vazando", waterTemp: 27 },
+  "S. M. Gostoso": { level: "Enchendo", height: "1.6m", next: "15:30 · Alta", waterTemp: 27 },
+  "Natal": { level: "Alta", height: "1.7m", next: "13:55 · Vazando", waterTemp: 27 },
+  "Cabedelo": { level: "Vazando", height: "1.5m", next: "14:20 · Baixa", waterTemp: 27 },
+  "João Pessoa": { level: "Vazando", height: "1.4m", next: "14:35 · Baixa", waterTemp: 27 },
+  "Porto de Galinhas": { level: "Alta", height: "1.6m", next: "13:40 · Vazando", waterTemp: 28 },
+  "Maragogi": { level: "Enchendo", height: "1.5m", next: "15:05 · Alta", waterTemp: 28 },
+  "Maceió": { level: "Alta", height: "1.4m", next: "14:00 · Vazando", waterTemp: 28 },
+  "Mangue Seco": { level: "Vazando", height: "1.6m", next: "14:45 · Baixa", waterTemp: 27 },
+  "Praia do Forte": { level: "Alta", height: "1.5m", next: "13:25 · Vazando", waterTemp: 26 },
+  "Salvador": { level: "Enchendo", height: "1.7m", next: "15:40 · Alta", waterTemp: 26 },
+  "Prado": { level: "Alta", height: "1.4m", next: "14:10 · Vazando", waterTemp: 25 },
 };
 
 type Grupo = { id: string; spot: string; rota: string; horario: string; dia: string; confirmados: string[] };
@@ -203,11 +277,12 @@ function BrasilInset() {
         d="M 25 15 L 40 12 Q 55 10 68 15 Q 78 20 85 30 Q 92 40 90 50 Q 88 62 82 72 Q 75 82 65 88 Q 55 92 45 90 Q 35 88 28 82 Q 18 75 15 65 Q 10 55 12 45 Q 15 30 20 22 Q 22 18 25 15 Z"
         fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round"
       />
+      {/* Nordeste realçado — vai do MA (topo) descendo até a BA (leste) */}
       <path
-        d="M 55 18 Q 68 16 78 22 Q 87 28 89 38 Q 88 44 82 46 Q 72 45 62 38 Q 55 32 55 24 Q 55 20 55 18 Z"
+        d="M 55 18 Q 68 16 78 22 Q 87 28 89 38 Q 88 50 82 60 Q 78 68 72 70 Q 65 68 62 60 Q 60 48 60 38 Q 58 28 55 22 Q 55 20 55 18 Z"
         fill="#00b4d8" fillOpacity="0.35" stroke="#3fd0f0" strokeWidth="0.8"
       />
-      <circle cx="82" cy="28" r="1.6" fill="#39e58c">
+      <circle cx="82" cy="30" r="1.6" fill="#39e58c">
         <animate attributeName="r" values="1.6;2.6;1.6" dur="2.2s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="1;0.4;1" dur="2.2s" repeatCount="indefinite" />
       </circle>
@@ -350,7 +425,7 @@ export function ComunidadeMapa() {
             <span className="serif italic normal-case tracking-normal text-[#3fd0f0]">no vento agora.</span>
           </h2>
           <p className="mt-6 text-lg md:text-xl text-white/60 leading-relaxed max-w-xl">
-            Do Ceará ao Maranhão — a rota do vento que faz do Nordeste o paraíso mundial do kite.
+            Do Maranhão à Bahia, a rota do vento que faz do Nordeste o paraíso mundial do kite.
             Arrasta, dá zoom, clica num ponto verde: vê o vento do pico e marca de velejar junto.
           </p>
         </motion.div>
@@ -364,7 +439,7 @@ export function ComunidadeMapa() {
         >
           <div
             ref={viewRef}
-            className="relative aspect-[16/12] md:aspect-[21/10] cursor-grab active:cursor-grabbing select-none touch-none"
+            className="relative aspect-[16/12] md:aspect-[21/12] cursor-grab active:cursor-grabbing select-none touch-none"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -378,16 +453,18 @@ export function ComunidadeMapa() {
                 <pattern id="ondas" x="0" y="0" width="6" height="4" patternUnits="userSpaceOnUse">
                   <path d="M 0 2 Q 1.5 1 3 2 T 6 2" fill="none" stroke="#3fd0f0" strokeWidth="0.15" opacity="0.4" />
                 </pattern>
-                <rect x="0" y="0" width="100" height="20" fill="url(#ondas)" />
+                <rect x="0" y="0" width="100" height="15" fill="url(#ondas)" />
+                <rect x="65" y="15" width="35" height="47" fill="url(#ondas)" />
               </svg>
 
               <WindParticles />
 
+              {/* MAPA — LITORAL EM L: MA→CE horizontal, CE→BA vertical */}
               <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
                 <defs>
-                  <linearGradient id="terra" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="terra" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#1a5c3e" />
-                    <stop offset="40%" stopColor="#134a30" />
+                    <stop offset="50%" stopColor="#134a30" />
                     <stop offset="100%" stopColor="#0d3520" />
                   </linearGradient>
                   <linearGradient id="areia" x1="0" y1="0" x2="0" y2="1">
@@ -400,32 +477,64 @@ export function ComunidadeMapa() {
                   </radialGradient>
                 </defs>
 
+                {/* Faixa de areia (mais próxima do mar) */}
                 <path
-                  d="M 0 22 Q 3 21.5 6 21.8 Q 12 20.8 17 20.5 Q 20 20.7 22 21 Q 25 21.8 27.5 21.5 Q 29 21 30 22 Q 32 23.5 34 24 Q 38 26 41 28.5 Q 45 32 48 35 Q 52 39 55 42 Q 59 45 62 47.5 Q 66 50 69 52.5 Q 72 54 74 55 Q 77 56 80 57 Q 88 58.5 100 60 L 100 62 L 0 62 Z"
+                  d="M 0 62 L 0 17
+                     Q 8 16.5 15 16.8
+                     Q 22 17 30 17.5
+                     Q 42 20 50 24
+                     Q 55 27 58 32
+                     Q 61 36 62 42
+                     Q 63 48 61 54
+                     Q 58 58 53 60
+                     Q 48 61.5 42 62
+                     Z"
                   fill="url(#areia)"
                 />
+
+                {/* Terra por cima (deixa faixa de areia visível na costa) */}
                 <path
-                  d="M 0 25 Q 3 24.5 6 24.8 Q 12 24 17 23.8 Q 20 24 22 24.3 Q 25 25 27.5 25 Q 29 24.5 30 25.5 Q 32 27 34 27.5 Q 38 29.5 41 32 Q 45 35.5 48 38.5 Q 52 42.5 55 45.5 Q 59 48.5 62 51 Q 66 53.5 69 55.5 Q 72 57 74 58 Q 77 59 80 59.5 Q 88 60.5 100 61.5 L 100 62 L 0 62 Z"
+                  d="M 0 62 L 0 19
+                     Q 8 18.5 15 18.8
+                     Q 22 19 30 19.5
+                     Q 42 22 50 26
+                     Q 55 29 58 34
+                     Q 61 38 62 44
+                     Q 63 50 61 56
+                     Q 57 59 52 60.5
+                     Q 47 61.7 41 62
+                     Z"
                   fill="url(#terra)"
                 />
 
-                <circle cx="4" cy="27" r="6" fill="url(#delta)" />
-                <ellipse cx="2" cy="26" rx="1.5" ry="0.7" fill="#5fd8f5" opacity="0.6" />
-                <ellipse cx="4.5" cy="27.5" rx="1.2" ry="0.6" fill="#5fd8f5" opacity="0.55" />
-                <ellipse cx="7" cy="26.5" rx="1" ry="0.5" fill="#5fd8f5" opacity="0.5" />
-                <ellipse cx="3" cy="29" rx="0.9" ry="0.5" fill="#5fd8f5" opacity="0.45" />
-                <ellipse cx="6" cy="28.5" rx="0.7" ry="0.4" fill="#5fd8f5" opacity="0.5" />
-                <ellipse cx="8.5" cy="28" rx="0.6" ry="0.35" fill="#5fd8f5" opacity="0.4" />
+                {/* Lençóis Maranhenses — dunas e lagoas */}
+                <circle cx="4" cy="22" r="6" fill="url(#delta)" />
+                <ellipse cx="2" cy="21" rx="1.5" ry="0.7" fill="#5fd8f5" opacity="0.6" />
+                <ellipse cx="4.5" cy="22.5" rx="1.2" ry="0.6" fill="#5fd8f5" opacity="0.55" />
+                <ellipse cx="7" cy="21.5" rx="1" ry="0.5" fill="#5fd8f5" opacity="0.5" />
+                <ellipse cx="3" cy="24" rx="0.9" ry="0.5" fill="#5fd8f5" opacity="0.45" />
+                <ellipse cx="6" cy="23.5" rx="0.7" ry="0.4" fill="#5fd8f5" opacity="0.5" />
+                <ellipse cx="8.5" cy="23" rx="0.6" ry="0.35" fill="#5fd8f5" opacity="0.4" />
 
-                <path d="M 15 62 Q 14 55 12 48 Q 11 42 13 35" fill="none" stroke="#3fd0f0" strokeWidth="0.3" opacity="0.35" />
-                <path d="M 45 62 Q 44 55 42 50" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
-                <path d="M 75 62 Q 74 60 72 58" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
+                {/* Rios (linhas azul-claro esparsas) */}
+                <path d="M 12 62 Q 11 55 9 48 Q 8 42 10 35" fill="none" stroke="#3fd0f0" strokeWidth="0.3" opacity="0.35" />
+                <path d="M 35 62 Q 34 55 32 48" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
+                <path d="M 25 62 Q 26 58 24 52" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
+                <path d="M 45 62 Q 46 55 44 45" fill="none" stroke="#3fd0f0" strokeWidth="0.22" opacity="0.28" />
 
-                <text x="10" y="42" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">MARANHÃO</text>
-                <text x="30" y="55" fontSize="1.4" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.3">PIAUÍ</text>
-                <text x="60" y="58" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">CEARÁ</text>
+                {/* Rótulos de estados */}
+                <text x="7" y="40" fontSize="1.5" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">MARANHÃO</text>
+                <text x="14" y="45" fontSize="1.3" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.3">PIAUÍ</text>
+                <text x="28" y="45" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">CEARÁ</text>
+                <text x="49" y="37" fontSize="1.1" fontWeight="700" fill="#ffffff" fillOpacity="0.17" letterSpacing="0.25">R. G. NORTE</text>
+                <text x="50" y="42" fontSize="1.1" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.25">PARAÍBA</text>
+                <text x="47" y="47" fontSize="1.2" fontWeight="700" fill="#ffffff" fillOpacity="0.17" letterSpacing="0.25">PERNAMBUCO</text>
+                <text x="48" y="51" fontSize="1" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.25">ALAGOAS</text>
+                <text x="46" y="55" fontSize="1" fontWeight="700" fill="#ffffff" fillOpacity="0.13" letterSpacing="0.25">SERGIPE</text>
+                <text x="35" y="59" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">BAHIA</text>
 
-                <g transform="translate(88 10)" opacity="0.35">
+                {/* Rosa dos ventos */}
+                <g transform="translate(88 8)" opacity="0.35">
                   <circle cx="0" cy="0" r="3.5" fill="none" stroke="#ffffff" strokeWidth="0.15" />
                   <path d="M0 -3.5 L0.5 -0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" />
                   <path d="M0 3.5 L0.5 0.5 L0 0 L-0.5 0.5 Z" fill="#ffffff" opacity="0.6" />
@@ -434,19 +543,27 @@ export function ComunidadeMapa() {
                   <text x="0" y="-4.5" fontSize="1.4" fill="#ffffff" textAnchor="middle" fontWeight="700">N</text>
                 </g>
 
+                {/* Setas de vento */}
                 <g opacity="0.25" fill="none" stroke="#3fd0f0" strokeWidth="0.15" strokeLinecap="round">
                   <path d="M 95 15 L 85 15 M 88 13.5 L 85 15 L 88 16.5" />
                   <path d="M 95 8 L 87 8 M 89.5 6.7 L 87 8 L 89.5 9.3" />
-                  <path d="M 95 5 L 88 5 M 90 3.8 L 88 5 L 90 6.2" />
+                  <path d="M 95 22 L 87 22 M 89.5 20.7 L 87 22 L 89.5 23.3" />
+                  <path d="M 95 40 L 88 40 M 90 39 L 88 40 L 90 41" />
+                  <path d="M 95 50 L 88 50 M 90 49 L 88 50 L 90 51" />
                 </g>
               </svg>
 
+              {/* PINS DOS SPOTS */}
               {SPOTS.map((s) => (
                 <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 3.5}%` }}>
                   <div className="flex flex-col items-center gap-0.5" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
-                    <MapPin className="h-3 w-3 text-white/50" />
+                    <MapPin className={s.principal ? "h-3 w-3 text-white/60" : "h-2.5 w-2.5 text-white/35"} />
                     <span
-                      className="text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/80 whitespace-nowrap font-semibold"
+                      className={
+                        s.principal
+                          ? "text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/85 whitespace-nowrap font-semibold"
+                          : "text-[7px] md:text-[8.5px] uppercase tracking-[0.12em] text-white/55 whitespace-nowrap font-medium"
+                      }
                       style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)" }}
                     >
                       {s.name}
@@ -455,12 +572,13 @@ export function ComunidadeMapa() {
                 </div>
               ))}
 
+              {/* RIDERS */}
               {DEMO_RIDERS.map((r, i) => (
                 <motion.div
                   key={r.id}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={inView ? { scale: 1, opacity: 1 } : {}}
-                  transition={{ delay: 0.6 + i * 0.1, type: "spring", stiffness: 300, damping: 18 }}
+                  transition={{ delay: 0.6 + i * 0.08, type: "spring", stiffness: 300, damping: 18 }}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
                   style={{ left: `${r.x}%`, top: `${r.y}%` }}
                 >
@@ -481,7 +599,7 @@ export function ComunidadeMapa() {
               ))}
             </div>
 
-            {/* HUD */}
+            {/* HUD fixo */}
             <div className="absolute top-3 left-3 md:top-6 md:left-6 flex items-center gap-2.5 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 md:px-4 pointer-events-none">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#39e58c] opacity-75" style={{ animation: "wiu-ping 1.8s infinite" }} />
@@ -547,7 +665,7 @@ export function ComunidadeMapa() {
           </div>
         </motion.div>
 
-        {/* Botão "Ver previsão dos picos" — centralizado abaixo do mapa */}
+        {/* Botão "Ver previsão dos picos" */}
         <AnimatePresence>
           {!chatOpenDesktop && (
             <motion.div
@@ -663,7 +781,7 @@ export function ComunidadeMapa() {
                     );
                   })}
                   <p className="pt-1 text-center text-[11px] text-white/35">
-                    Grupos são combinados pela comunidade. Sem conversa aqui — o papo é no ponto verde de cada rider.
+                    Grupos são combinados pela comunidade. Sem conversa aqui, o papo é no ponto verde de cada rider.
                   </p>
                 </div>
               </motion.div>
@@ -684,7 +802,7 @@ export function ComunidadeMapa() {
   );
 }
 
-/* MODAL — Previsão dos picos: busca + grid de cards com vento, rajada, maré, água */
+/* MODAL BRANCO — Previsão dos picos: busca + grid de cards */
 function ForecastModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
 
@@ -701,7 +819,7 @@ function ForecastModal({ onClose }: { onClose: () => void }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[140] flex items-end md:items-center justify-center p-0 md:p-6"
-      style={{ background: "rgba(4,14,18,0.7)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+      style={{ background: "rgba(12,26,32,0.55)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
       onClick={onClose}
     >
       <motion.div
@@ -710,61 +828,61 @@ function ForecastModal({ onClose }: { onClose: () => void }) {
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 280 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full md:max-w-4xl max-h-[90vh] flex flex-col rounded-t-3xl md:rounded-3xl border border-white/15 bg-[#0c1a20] shadow-2xl overflow-hidden"
+        className="w-full md:max-w-4xl max-h-[90vh] flex flex-col rounded-t-3xl md:rounded-3xl border border-black/10 bg-white shadow-2xl overflow-hidden"
       >
-        {/* Header sticky */}
-        <div className="flex items-center justify-between bg-[#0c1a20] px-6 py-5 border-b border-white/10 shrink-0">
+        {/* Header */}
+        <div className="flex items-center justify-between bg-white px-6 py-5 border-b border-black/8 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#3fd0f0]/15 border border-[#3fd0f0]/25">
-              <CloudSun className="h-5 w-5 text-[#3fd0f0]" />
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#00b4d8]/10 border border-[#00b4d8]/25">
+              <CloudSun className="h-5 w-5 text-[#00b4d8]" />
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">Previsão em tempo real</div>
-              <h3 className="font-semibold text-white text-lg leading-tight">Picos do Nordeste</h3>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-[#0c1a20]/50">Previsão em tempo real</div>
+              <h3 className="font-semibold text-[#0c1a20] text-lg leading-tight">Picos do Nordeste</h3>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition">
+          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-[#0c1a20]/45 hover:text-[#0c1a20] hover:bg-black/5 transition">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Busca */}
-        <div className="px-6 pt-5 pb-4 shrink-0">
+        <div className="px-6 pt-5 pb-4 shrink-0 bg-white">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#0c1a20]/40" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar pico (ex: Jericoacoara, Cumbuco…)"
-              className="w-full rounded-full bg-white/[0.06] border border-white/15 pl-11 pr-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-[#3fd0f0]/50 focus:bg-white/[0.08] transition"
+              placeholder="Buscar pico (ex: Jericoacoara, Cumbuco, Natal, Maceió...)"
+              className="w-full rounded-full bg-black/[0.04] border border-black/10 pl-11 pr-4 py-3 text-sm text-[#0c1a20] placeholder:text-[#0c1a20]/40 outline-none focus:border-[#00b4d8]/50 focus:bg-black/[0.02] transition"
             />
           </div>
-          <div className="mt-3 text-[11px] text-white/45">
+          <div className="mt-3 text-[11px] text-[#0c1a20]/50">
             {filtered.length === 0
               ? "Nenhum pico encontrado com esse nome."
-              : `${filtered.length} pico${filtered.length > 1 ? "s" : ""} · vento agora e próxima maré`}
+              : `${filtered.length} pico${filtered.length > 1 ? "s" : ""} do Maranhão à Bahia`}
           </div>
         </div>
 
         {/* Grid de cards */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 bg-[#faf8f3]">
           {filtered.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-4">
               {filtered.map((name) => (
                 <SpotForecastCard key={name} name={name} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-16 text-white/40">
+            <div className="text-center py-16 text-[#0c1a20]/40">
               <Search className="h-8 w-8 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Tente outro nome — nossos picos cobrem CE, PI e MA.</p>
+              <p className="text-sm">Tente outro nome. Nossos picos cobrem toda a costa do NE.</p>
             </div>
           )}
 
-          <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-white/30">
-            <span className="h-px w-8 bg-white/20" />
+          <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-[#0c1a20]/35">
+            <span className="h-px w-8 bg-black/15" />
             Atualizado agora · dados demonstrativos
-            <span className="h-px w-8 bg-white/20" />
+            <span className="h-px w-8 bg-black/15" />
           </div>
         </div>
       </motion.div>
@@ -772,12 +890,11 @@ function ForecastModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Card individual de previsão de um spot — dentro do modal. */
 function SpotForecastCard({ name }: { name: string }) {
   const w = SPOT_WIND[name] || { avg: 20, gust: 25, dir: "E", deg: 90 };
   const t = SPOT_TIDES[name] || { level: "—", height: "—", next: "—", waterTemp: 27 };
 
-  const tideColor = t.level === "Alta" ? "#3fd0f0" : t.level === "Baixa" ? "#f5a623" : t.level === "Enchendo" ? "#39e58c" : "#f77c5b";
+  const tideColor = t.level === "Alta" ? "#0098c0" : t.level === "Baixa" ? "#e69420" : t.level === "Enchendo" ? "#18b26b" : "#e0664a";
 
   return (
     <motion.div
@@ -785,81 +902,74 @@ function SpotForecastCard({ name }: { name: string }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:border-[#3fd0f0]/40 hover:bg-white/[0.05] transition-all"
+      className="rounded-2xl border border-black/8 bg-white p-4 hover:border-[#00b4d8]/40 hover:shadow-lg hover:shadow-[#00b4d8]/5 transition-all"
     >
-      {/* Header do card */}
-      <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/8">
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-black/6">
         <div className="flex items-center gap-2 min-w-0">
-          <MapPin className="h-3.5 w-3.5 text-[#3fd0f0] shrink-0" />
-          <span className="font-semibold text-white text-sm truncate">{name}</span>
+          <MapPin className="h-3.5 w-3.5 text-[#00b4d8] shrink-0" />
+          <span className="font-semibold text-[#0c1a20] text-sm truncate">{name}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-white/50 shrink-0">
+        <div className="flex items-center gap-1.5 text-[10px] text-[#0c1a20]/55 shrink-0">
           <Navigation2 className="h-3 w-3" style={{ transform: `rotate(${w.deg}deg)` }} />
           {w.dir}
         </div>
       </div>
 
-      {/* Vento */}
       <div className="mt-3 grid grid-cols-2 gap-3">
         <div>
-          <div className="text-[9px] uppercase tracking-[0.16em] text-white/45 font-semibold">Vento médio</div>
+          <div className="text-[9px] uppercase tracking-[0.16em] text-[#0c1a20]/50 font-semibold">Vento médio</div>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-[#39e58c] tabular-nums">{w.avg}</span>
-            <span className="text-[10px] text-white/50">nós</span>
+            <span className="text-2xl font-bold text-[#18b26b] tabular-nums">{w.avg}</span>
+            <span className="text-[10px] text-[#0c1a20]/50">nós</span>
           </div>
         </div>
         <div>
-          <div className="text-[9px] uppercase tracking-[0.16em] text-white/45 font-semibold">Rajada</div>
+          <div className="text-[9px] uppercase tracking-[0.16em] text-[#0c1a20]/50 font-semibold">Rajada</div>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-[#3fd0f0] tabular-nums">{w.gust}</span>
-            <span className="text-[10px] text-white/50">nós</span>
+            <span className="text-2xl font-bold text-[#0098c0] tabular-nums">{w.gust}</span>
+            <span className="text-[10px] text-[#0c1a20]/50">nós</span>
           </div>
         </div>
       </div>
 
-      {/* Barra de intensidade do vento */}
-      <div className="mt-2.5 h-1 rounded-full overflow-hidden bg-white/8">
+      <div className="mt-2.5 h-1 rounded-full overflow-hidden bg-black/6">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${Math.min(100, (w.avg / 40) * 100)}%`, background: "linear-gradient(90deg,#18b26b,#a5d922,#3fd0f0)" }}
         />
       </div>
 
-      {/* Maré e água */}
-      <div className="mt-3 pt-3 border-t border-white/8 space-y-2">
+      <div className="mt-3 pt-3 border-t border-black/6 space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[10px] text-white/60">
-            <Waves className="h-3 w-3" />
-            Maré
+          <div className="flex items-center gap-1.5 text-[10px] text-[#0c1a20]/60">
+            <Waves className="h-3 w-3" /> Maré
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: tideColor }} />
-            <span className="text-xs font-semibold text-white">{t.level}</span>
-            <span className="text-[10px] text-white/45 tabular-nums">{t.height}</span>
+            <span className="text-xs font-semibold text-[#0c1a20]">{t.level}</span>
+            <span className="text-[10px] text-[#0c1a20]/45 tabular-nums">{t.height}</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-white/45">
+        <div className="flex items-center justify-between text-[10px] text-[#0c1a20]/50">
           <div className="flex items-center gap-1.5">
-            <CalendarClock className="h-3 w-3" />
-            Próxima
+            <CalendarClock className="h-3 w-3" /> Próxima
           </div>
           <span className="tabular-nums">{t.next}</span>
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-white/45">
+        <div className="flex items-center justify-between text-[10px] text-[#0c1a20]/50">
           <div className="flex items-center gap-1.5">
-            <Droplets className="h-3 w-3" />
-            Água
+            <Droplets className="h-3 w-3" /> Água
           </div>
-          <span className="tabular-nums font-semibold text-white/70">{t.waterTemp}°C</span>
+          <span className="tabular-nums font-semibold text-[#0c1a20]/70">{t.waterTemp}°C</span>
         </div>
       </div>
     </motion.div>
   );
 }
 
-/* Chat estilo WhatsApp — fundo branco, header preto, balões */
+/* Chat estilo WhatsApp */
 function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onClose: () => void; className?: string; full?: boolean }) {
   const [msgs, setMsgs] = useState<{ me: boolean; text: string; time: string }[]>([]);
   const [text, setText] = useState("");
