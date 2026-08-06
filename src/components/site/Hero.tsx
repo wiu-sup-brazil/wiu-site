@@ -22,22 +22,20 @@ export function Hero() {
   const sceneOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const sceneStyle = reduce ? undefined : { opacity: sceneOpacity };
 
-  /* Parallax da pipa: conforme o usuário rola, ela desce planando em
-     direção ao centro e continua descendo até entrar na seção seguinte
-     (o Hero corta só no eixo X, então ela transborda pra baixo). */
+  /* Parallax da pipa: conforme rola, desce planando pra próxima seção */
   const kiteY = useTransform(scrollYProgress, [0, 1], ["0vh", "118vh"]);
   const kiteX = useTransform(scrollYProgress, [0, 1], ["0vw", "-30vw"]);
   const kiteXMobile = useTransform(scrollYProgress, [0, 1], ["0vw", "8vw"]);
   const kiteRotate = useTransform(scrollYProgress, [0, 0.5, 1], [0, 8, -6]);
 
-  /* Chat IA: acompanha o scroll (desce junto) e some caso o usuário não
-     interaja. Se digitar ou clicar numa opção, permanece visível. */
+  /* Chat IA: acompanha o scroll e some se ninguém interagir */
   const chatY = useTransform(scrollYProgress, [0, 0.6], ["0vh", "50vh"]);
   const chatScrollOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
 
   const interactedRef = useRef(false);
   const [pointerNone, setPointerNone] = useState(false);
   const [chatClosed, setChatClosed] = useState(false);
+  const [chatMobileOpen, setChatMobileOpen] = useState(false);
 
   const chatOpacity = useTransform(chatScrollOpacity, (v) => (interactedRef.current ? 1 : v));
 
@@ -102,7 +100,7 @@ export function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* Sol/pássaros/vento */}
+      {/* Sol/pássaros/vento — só desktop */}
       <motion.div aria-hidden style={sceneStyle} className="hidden md:block pointer-events-none absolute inset-0">
         <motion.div
           className="absolute right-[6%] top-[6%] w-24 lg:w-28 text-ink/80"
@@ -128,11 +126,11 @@ export function Hero() {
         </div>
       </motion.div>
 
-      {/* Chat IA — canto direito, abaixo da pipa. Some ao rolar se não interagir. */}
+      {/* CHAT IA — DESKTOP: mais centralizado (não no canto) */}
       <AnimatePresence>
         {!chatClosed && (
           <motion.div
-            className="hidden md:block absolute z-40 md:right-[3%] md:top-[46%] md:w-[320px] lg:w-[340px]"
+            className="hidden md:block absolute z-40 md:right-[12%] md:top-[40%] md:w-[340px] lg:w-[360px]"
             initial={{ opacity: 0, y: 40, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -144,6 +142,101 @@ export function Hero() {
               <IAChat
                 onInteract={() => { interactedRef.current = true; }}
                 onClose={() => setChatClosed(true)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CHAT IA — MOBILE: FAB flutuante com bolha "Fale com a WIU" */}
+      <AnimatePresence>
+        {!chatClosed && !chatMobileOpen && (
+          <motion.div
+            className="md:hidden fixed bottom-5 right-5 z-40"
+            style={reduce ? undefined : { y: chatY, opacity: chatOpacity, pointerEvents: pointerNone ? "none" : "auto" }}
+          >
+            <motion.button
+              onClick={() => { interactedRef.current = true; setChatMobileOpen(true); }}
+              className="relative block"
+              aria-label="Falar com a atendente WIU"
+              initial={{ scale: 0, y: 80, opacity: 0 }}
+              animate={reduce ? { scale: 1, y: 0, opacity: 1 } : { scale: 1, y: [0, -8, 0], opacity: 1 }}
+              exit={{ scale: 0, opacity: 0, y: 30 }}
+              transition={{
+                scale: { delay: 2.5, type: "spring", stiffness: 260, damping: 22 },
+                opacity: { delay: 2.5, duration: 0.5 },
+                y: reduce ? { delay: 2.5 } : { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 3 },
+              }}
+            >
+              {/* Bolha "Fale com a WIU" ao lado */}
+              <motion.span
+                className="absolute right-[calc(100%+10px)] top-1/2 -translate-y-1/2 whitespace-nowrap bg-white rounded-full px-3.5 py-2 text-[12px] font-semibold text-ink"
+                style={{ boxShadow: "0 8px 20px rgba(0,0,0,0.15)" }}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 3.2, duration: 0.5 }}
+              >
+                Fale com a WIU 👋
+                <span
+                  className="absolute -right-1.5 top-1/2 -translate-y-1/2"
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: "8px solid white",
+                    borderTop: "6px solid transparent",
+                    borderBottom: "6px solid transparent",
+                  }}
+                />
+              </motion.span>
+
+              {/* Botão redondo com logo W */}
+              <div
+                className="relative h-14 w-14 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                style={{
+                  background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)",
+                  boxShadow: "0 8px 24px rgba(0, 180, 216, 0.5), 0 0 0 4px rgba(255,255,255,0.95)",
+                }}
+              >
+                W
+                {/* Ping verde */}
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-[#39e58c] ring-2 ring-white flex items-center justify-center">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#39e58c] opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                  </span>
+                </span>
+              </div>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* BOTTOM SHEET MOBILE do chat IA */}
+      <AnimatePresence>
+        {chatMobileOpen && (
+          <motion.div
+            className="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChatMobileOpen(false)} />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 280 }}
+              className="relative bg-white rounded-t-3xl overflow-hidden h-[85vh] flex flex-col"
+              style={{ boxShadow: "0 -20px 60px rgba(0,0,0,0.35)" }}
+            >
+              {/* Alça de arrasto */}
+              <div className="pt-2 pb-1 flex justify-center bg-white shrink-0">
+                <span className="h-1 w-10 rounded-full bg-ink/15" />
+              </div>
+              <IAChat
+                onInteract={() => { interactedRef.current = true; }}
+                onClose={() => setChatMobileOpen(false)}
+                full
               />
             </motion.div>
           </motion.div>
@@ -233,7 +326,7 @@ export function Hero() {
   );
 }
 
-function IAChat({ onInteract, onClose }: { onInteract: () => void; onClose: () => void }) {
+function IAChat({ onInteract, onClose, full = false }: { onInteract: () => void; onClose: () => void; full?: boolean }) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([
     { from: "ia", text: "Olá! Sou a atendente da WIU 👋" },
     { from: "ia", text: "O que você tá procurando?" },
@@ -256,6 +349,7 @@ function IAChat({ onInteract, onClose }: { onInteract: () => void; onClose: () =
       setTimeout(() => {
         if (opt.href.startsWith("#")) {
           document.querySelector(opt.href)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          onClose();
         } else {
           window.open(opt.href, "_blank", "noopener,noreferrer");
         }
@@ -278,13 +372,10 @@ function IAChat({ onInteract, onClose }: { onInteract: () => void; onClose: () =
     }, 900);
   }
 
-  return (
-    <div
-      className="rounded-2xl overflow-hidden bg-white border border-ink/8"
-      style={{ boxShadow: "0 25px 70px -15px rgba(13,13,13,0.2), 0 0 0 1px rgba(0,180,216,0.1)" }}
-    >
+  const inner = (
+    <>
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 bg-white border-b border-ink/8">
+      <div className={`flex items-center gap-2.5 px-4 py-3 bg-white shrink-0 ${!full ? "border-b border-ink/8" : ""}`}>
         <div className="relative">
           <div className="grid h-9 w-9 place-items-center rounded-full text-white font-bold text-sm"
             style={{ background: "linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)" }}>
@@ -305,16 +396,16 @@ function IAChat({ onInteract, onClose }: { onInteract: () => void; onClose: () =
         <button
           onClick={onClose}
           aria-label="Fechar chat"
-          className="rounded-full p-1.5 text-ink/40 hover:text-ink hover:bg-ink/5 transition"
+          className="rounded-full p-2 text-ink/40 hover:text-ink hover:bg-ink/5 transition"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Mensagens */}
       <div
         ref={boxRef}
-        className="max-h-60 overflow-y-auto px-3.5 py-3 space-y-2"
+        className={`${full ? "flex-1" : "max-h-60"} overflow-y-auto px-3.5 py-3 space-y-2`}
         style={{
           background: "#f7f5f0",
           backgroundImage: "radial-gradient(circle at 1px 1px, rgba(13,13,13,0.05) 1px, transparent 0)",
@@ -381,7 +472,10 @@ function IAChat({ onInteract, onClose }: { onInteract: () => void; onClose: () =
       </div>
 
       {/* Input */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-t border-ink/8 bg-white">
+      <div
+        className="flex items-center gap-2 px-3 py-2.5 border-t border-ink/8 bg-white shrink-0"
+        style={full ? { paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" } : undefined}
+      >
         <input
           value={text}
           onChange={(e) => { setText(e.target.value); if (e.target.value) onInteract(); }}
@@ -398,6 +492,17 @@ function IAChat({ onInteract, onClose }: { onInteract: () => void; onClose: () =
           <Send className="h-4 w-4" />
         </button>
       </div>
+    </>
+  );
+
+  if (full) return <div className="flex h-full flex-col bg-white">{inner}</div>;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden bg-white border border-ink/8"
+      style={{ boxShadow: "0 25px 70px -15px rgba(13,13,13,0.2), 0 0 0 1px rgba(0,180,216,0.1)" }}
+    >
+      {inner}
     </div>
   );
 }
