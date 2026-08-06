@@ -4,96 +4,216 @@ import { motion, AnimatePresence, useInView } from "motion/react";
 import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets } from "lucide-react";
 
 /**
- * Mapa da comunidade v8 — litoral do NE completo, do Maranhão à Bahia.
+ * Mapa da comunidade v9, geometria real do litoral NE.
  *
- * Cobre 25 spots de kitesurf/wing foil da costa nordestina, com curva
- * em L (horizontal MA→CE, vertical CE→BA passando por RN, PB, PE, AL, SE).
+ * Muda em relação à v8:
+ *  - Spots com lat/lng reais, projetados via helper `proj()`.
+ *  - Contorno da costa desenhado a partir de ~50 pontos reais (Baía de São
+ *    Marcos, cabo de São Roque, Baía de Todos os Santos aparecem certos).
+ *  - Sistema de LOD, mais detalhe conforme zoom, cidades vizinhas aparecem
+ *    em cinza (Camocim, Aracati, Touros, Recife, Ilhéus, etc).
+ *  - SpotPanel vai pro canto inferior-esquerdo, ChatCard pro canto
+ *    inferior-direito. Nenhum cobre o miolo do mapa.
+ *  - Aspecto do container 16/12 no desktop (mais vertical, cabe o NE inteiro).
+ *  - Setas de vento mais densas + coordenadas do cursor tipo Windy.
  *
- * Modal de previsão em fundo branco. Chat estilo WhatsApp mantido.
+ * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS seguem hardcoded.
  * Sem em-dashes (— substituído por vírgula).
- *
- * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS são dados demo.
- * Trocar por Supabase Realtime quando o backend existir.
  */
 
-type Rider = { id: string; name: string; spot: string; x: number; y: number; level: string };
-type Spot = { name: string; x: number; y: number; principal?: boolean };
+/* ============================================================
+ *  Projeção geográfica, lat/lng -> coordenadas do viewBox 100x100
+ * ============================================================ */
+
+const LAT_MAX = -1.5;   // topo do mapa (norte)
+const LAT_MIN = -17.6;  // base do mapa (sul)
+const LNG_MIN = -44.5;  // esquerda do mapa (oeste)
+const LNG_MAX = -34.5;  // direita do mapa (leste)
+
+function proj(lat: number, lng: number) {
+  const x = ((lng - LNG_MIN) / (LNG_MAX - LNG_MIN)) * 100;
+  const y = ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * 100;
+  return { x, y };
+}
+
+/* ============================================================
+ *  Spots (lat/lng reais)
+ * ============================================================ */
+
+type Rider = { id: string; name: string; spot: string; lat: number; lng: number; level: string };
+type Spot = { name: string; lat: number; lng: number; principal?: boolean };
 
 const SPOTS: Spot[] = [
   // MARANHÃO
-  { name: "Lençóis", x: 3, y: 17, principal: true },
-  { name: "Atins", x: 8, y: 17.3 },
+  { name: "Lençóis", lat: -2.6, lng: -43.0, principal: true },
+  { name: "Atins", lat: -2.58, lng: -42.73 },
 
   // PIAUÍ
-  { name: "Barra Grande", x: 14, y: 17.5 },
+  { name: "Barra Grande", lat: -2.9, lng: -41.68 },
 
-  // CEARÁ NORTE (litoral horizontal)
-  { name: "Tatajuba", x: 19, y: 17.8 },
-  { name: "Jericoacoara", x: 24, y: 17.8, principal: true },
-  { name: "Preá", x: 27, y: 18.5 },
-  { name: "Ilha do Guajiru", x: 31, y: 19.5 },
-  { name: "Icaraizinho", x: 35, y: 20.5 },
-  { name: "Mundaú", x: 38, y: 21.5 },
-  { name: "Flecheiras", x: 42, y: 22.5 },
-  { name: "Paracuru", x: 46, y: 24 },
-  { name: "Taíba", x: 49, y: 25.5 },
-  { name: "Cumbuco", x: 52, y: 27 },
-  { name: "Fortaleza", x: 55, y: 29, principal: true },
+  // CEARÁ norte, litoral horizontal
+  { name: "Tatajuba", lat: -2.92, lng: -41.03 },
+  { name: "Jericoacoara", lat: -2.79, lng: -40.51, principal: true },
+  { name: "Preá", lat: -2.85, lng: -40.35 },
+  { name: "Ilha do Guajiru", lat: -2.95, lng: -39.99 },
+  { name: "Icaraizinho", lat: -3.02, lng: -39.55 },
+  { name: "Mundaú", lat: -3.09, lng: -39.4 },
+  { name: "Flecheiras", lat: -3.23, lng: -39.27 },
+  { name: "Paracuru", lat: -3.4, lng: -39.03 },
+  { name: "Taíba", lat: -3.5, lng: -38.9 },
+  { name: "Cumbuco", lat: -3.62, lng: -38.73 },
+  { name: "Fortaleza", lat: -3.72, lng: -38.54, principal: true },
 
-  // RIO GRANDE DO NORTE (curva pra sul)
-  { name: "Galinhos", x: 59, y: 30.5 },
-  { name: "S. M. Gostoso", x: 62, y: 32 },
-  { name: "Natal", x: 63, y: 35, principal: true },
+  // RIO GRANDE DO NORTE (curva pra sul no cabo de São Roque)
+  { name: "Galinhos", lat: -5.09, lng: -36.27 },
+  { name: "S. M. Gostoso", lat: -5.12, lng: -35.63 },
+  { name: "Natal", lat: -5.78, lng: -35.2, principal: true },
 
   // PARAÍBA
-  { name: "Cabedelo", x: 63, y: 39 },
-  { name: "João Pessoa", x: 63, y: 40.5 },
+  { name: "Cabedelo", lat: -6.97, lng: -34.83 },
+  { name: "João Pessoa", lat: -7.12, lng: -34.86 },
 
   // PERNAMBUCO
-  { name: "Porto de Galinhas", x: 62, y: 44, principal: true },
+  { name: "Porto de Galinhas", lat: -8.5, lng: -34.99, principal: true },
 
   // ALAGOAS
-  { name: "Maragogi", x: 61, y: 47 },
-  { name: "Maceió", x: 60, y: 49, principal: true },
+  { name: "Maragogi", lat: -9.0, lng: -35.22 },
+  { name: "Maceió", lat: -9.66, lng: -35.73, principal: true },
 
   // SERGIPE / BAHIA
-  { name: "Mangue Seco", x: 58, y: 52 },
-  { name: "Praia do Forte", x: 55, y: 55 },
-  { name: "Salvador", x: 52, y: 57, principal: true },
-  { name: "Prado", x: 48, y: 60 },
+  { name: "Mangue Seco", lat: -11.44, lng: -37.11 },
+  { name: "Praia do Forte", lat: -12.57, lng: -38.0 },
+  { name: "Salvador", lat: -12.97, lng: -38.5, principal: true },
+  { name: "Prado", lat: -17.34, lng: -39.22 },
 ];
 
-const DEMO_RIDERS: Rider[] = [
-  // CE
-  { id: "r1", name: "Léo", spot: "Cumbuco", x: 51.5, y: 26.5, level: "Avançado" },
-  { id: "r2", name: "Marina", spot: "Cumbuco", x: 52.5, y: 27.5, level: "Intermediário" },
-  { id: "r3", name: "Pedrão", spot: "Taíba", x: 49, y: 25.2, level: "Avançado" },
-  { id: "r4", name: "Ana", spot: "Paracuru", x: 46, y: 23.7, level: "Iniciante" },
-  { id: "r5", name: "Duda", spot: "Flecheiras", x: 42, y: 22.2, level: "Avançado" },
-  { id: "r6", name: "Rafa", spot: "Icaraizinho", x: 35, y: 20.2, level: "Intermediário" },
-  { id: "r7", name: "Caio", spot: "Ilha do Guajiru", x: 31, y: 19.2, level: "Avançado" },
-  { id: "r8", name: "Thibaut", spot: "Preá", x: 27, y: 18.2, level: "Avançado" },
-  { id: "r9", name: "Sofia", spot: "Jericoacoara", x: 24, y: 17.5, level: "Intermediário" },
-  // PI/MA
-  { id: "r10", name: "Marcos", spot: "Barra Grande", x: 14, y: 17.2, level: "Intermediário" },
-  { id: "r11", name: "Bia", spot: "Atins", x: 8, y: 17, level: "Avançado" },
-  // RN
-  { id: "r12", name: "Fred", spot: "Natal", x: 63, y: 34.7, level: "Avançado" },
-  // PE
-  { id: "r13", name: "Camila", spot: "Porto de Galinhas", x: 62, y: 43.7, level: "Intermediário" },
-  // AL
-  { id: "r14", name: "Vinícius", spot: "Maceió", x: 60, y: 48.7, level: "Avançado" },
-  // BA
-  { id: "r15", name: "Larissa", spot: "Salvador", x: 52, y: 56.7, level: "Iniciante" },
-  { id: "r16", name: "Bruno", spot: "Praia do Forte", x: 55, y: 54.7, level: "Avançado" },
+// Cidades adicionais que aparecem só em zoom alto, sem ponto verde.
+// Servem de referência geográfica.
+const CIDADES_REF: { name: string; lat: number; lng: number }[] = [
+  { name: "São Luís", lat: -2.53, lng: -44.3 },
+  { name: "Parnaíba", lat: -2.9, lng: -41.78 },
+  { name: "Camocim", lat: -2.9, lng: -40.85 },
+  { name: "Acaraú", lat: -2.89, lng: -40.12 },
+  { name: "Aracati", lat: -4.55, lng: -37.77 },
+  { name: "Icapuí", lat: -4.7, lng: -37.35 },
+  { name: "Areia Branca", lat: -4.95, lng: -37.13 },
+  { name: "Macau", lat: -5.11, lng: -36.63 },
+  { name: "Touros", lat: -5.2, lng: -35.46 },
+  { name: "Baía Formosa", lat: -6.37, lng: -35.0 },
+  { name: "Recife", lat: -8.05, lng: -34.87 },
+  { name: "Aracaju", lat: -10.9, lng: -37.07 },
+  { name: "Ilhéus", lat: -14.79, lng: -39.03 },
+  { name: "Porto Seguro", lat: -16.44, lng: -39.06 },
 ];
+
+// Rótulos de estados (posicionados pra interior, não na costa)
+const ESTADOS: { name: string; lat: number; lng: number; size?: "lg" | "md" | "sm" }[] = [
+  { name: "MARANHÃO", lat: -5.5, lng: -44.0, size: "lg" },
+  { name: "PIAUÍ", lat: -7.5, lng: -42.5, size: "lg" },
+  { name: "CEARÁ", lat: -5.5, lng: -39.5, size: "lg" },
+  { name: "R. G. NORTE", lat: -6.3, lng: -37.5, size: "md" },
+  { name: "PARAÍBA", lat: -7.4, lng: -36.8, size: "md" },
+  { name: "PERNAMBUCO", lat: -8.5, lng: -37.5, size: "md" },
+  { name: "ALAGOAS", lat: -9.5, lng: -36.7, size: "md" },
+  { name: "SERGIPE", lat: -10.7, lng: -37.7, size: "sm" },
+  { name: "BAHIA", lat: -13.5, lng: -42.0, size: "lg" },
+];
+
+/* ============================================================
+ *  Contorno da costa, pontos reais aproximados
+ *  Sequência de latitude decrescente (norte -> sul) seguindo o litoral.
+ * ============================================================ */
+
+const COAST: [number, number][] = [
+  // Costa norte MA, Baía de São Marcos e Golfão
+  [-1.55, -44.5],
+  [-2.0, -44.35],
+  [-2.4, -44.05],
+  [-2.55, -43.55],
+  [-2.55, -43.15],  // Lençóis
+  [-2.55, -42.8],   // Atins
+  // Delta do Parnaíba
+  [-2.75, -42.4],
+  [-2.95, -42.05],
+  [-2.85, -41.75],  // Barra Grande, PI
+  [-2.85, -41.35],
+  [-2.9, -41.0],    // Camocim
+  [-2.82, -40.65],
+  [-2.79, -40.5],   // Jericoacoara
+  [-2.83, -40.35],  // Preá
+  [-2.9, -40.15],
+  [-2.95, -39.99],  // Guajiru
+  [-3.0, -39.75],
+  [-3.03, -39.55],
+  [-3.11, -39.4],
+  [-3.22, -39.27],  // Flecheiras
+  [-3.4, -39.03],   // Paracuru
+  [-3.5, -38.9],    // Taíba
+  [-3.62, -38.73],  // Cumbuco
+  [-3.72, -38.54],  // Fortaleza
+  [-3.86, -38.35],
+  [-4.15, -37.9],
+  [-4.4, -37.6],
+  [-4.55, -37.77],  // Aracati (baía)
+  [-4.7, -37.35],   // Icapuí
+  [-4.85, -37.15],
+  [-5.0, -36.9],
+  [-5.05, -36.55],
+  [-5.09, -36.27],  // Galinhos
+  [-5.1, -35.95],
+  [-5.12, -35.63],  // S. M. Gostoso
+  [-5.13, -35.4],
+  // Cabo de São Roque, curva 90° pra sul
+  [-5.25, -35.29],
+  [-5.5, -35.24],
+  [-5.78, -35.2],   // Natal
+  [-6.2, -35.1],
+  [-6.5, -35.03],
+  [-6.85, -34.86],
+  [-6.97, -34.83],  // Cabedelo
+  [-7.12, -34.86],  // João Pessoa
+  [-7.5, -34.83],
+  [-7.85, -34.83],
+  [-8.05, -34.87],  // Recife
+  [-8.3, -34.93],
+  [-8.5, -34.99],   // Porto de Galinhas
+  [-8.75, -35.08],
+  [-9.0, -35.17],   // Maragogi
+  [-9.4, -35.45],
+  [-9.66, -35.73],  // Maceió
+  [-10.0, -36.05],
+  [-10.5, -36.5],
+  [-10.9, -36.9],   // Barra Aracaju
+  [-11.2, -37.05],
+  [-11.44, -37.11], // Mangue Seco
+  [-11.7, -37.2],
+  [-11.95, -37.55],
+  // Baía de Todos os Santos, indenta pra oeste
+  [-12.25, -37.85],
+  [-12.5, -38.0],   // Praia do Forte
+  [-12.85, -38.35],
+  [-12.97, -38.5],  // Salvador
+  // Sul da BA, contorno até Prado
+  [-13.3, -38.9],
+  [-13.8, -38.95],
+  [-14.4, -38.98],
+  [-14.79, -39.03], // Ilhéus
+  [-15.4, -38.95],
+  [-16.0, -38.98],
+  [-16.44, -39.06], // Porto Seguro
+  [-17.0, -39.15],
+  [-17.34, -39.22], // Prado
+  [-17.6, -39.3],
+];
+
+/* ============================================================
+ *  Dados de vento / maré / grupos (mantidos)
+ * ============================================================ */
 
 const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: number }> = {
-  // MA / PI
   "Lençóis": { avg: 25, gust: 32, dir: "ENE", deg: 67 },
   "Atins": { avg: 26, gust: 33, dir: "ENE", deg: 67 },
   "Barra Grande": { avg: 24, gust: 29, dir: "ENE", deg: 67 },
-  // CE norte
   "Tatajuba": { avg: 25, gust: 31, dir: "E", deg: 90 },
   "Jericoacoara": { avg: 24, gust: 30, dir: "E", deg: 90 },
   "Preá": { avg: 26, gust: 32, dir: "E", deg: 90 },
@@ -105,19 +225,14 @@ const SPOT_WIND: Record<string, { avg: number; gust: number; dir: string; deg: n
   "Taíba": { avg: 23, gust: 29, dir: "ESE", deg: 112 },
   "Cumbuco": { avg: 22, gust: 27, dir: "E", deg: 90 },
   "Fortaleza": { avg: 18, gust: 23, dir: "SSE", deg: 157 },
-  // RN
   "Galinhos": { avg: 22, gust: 28, dir: "E", deg: 90 },
   "S. M. Gostoso": { avg: 23, gust: 29, dir: "E", deg: 90 },
   "Natal": { avg: 20, gust: 25, dir: "SE", deg: 135 },
-  // PB
   "Cabedelo": { avg: 17, gust: 22, dir: "SE", deg: 135 },
   "João Pessoa": { avg: 16, gust: 21, dir: "SE", deg: 135 },
-  // PE
   "Porto de Galinhas": { avg: 18, gust: 24, dir: "SE", deg: 135 },
-  // AL
   "Maragogi": { avg: 16, gust: 22, dir: "SE", deg: 135 },
   "Maceió": { avg: 15, gust: 20, dir: "SE", deg: 135 },
-  // SE / BA
   "Mangue Seco": { avg: 22, gust: 28, dir: "NE", deg: 45 },
   "Praia do Forte": { avg: 15, gust: 20, dir: "NE", deg: 45 },
   "Salvador": { avg: 13, gust: 18, dir: "E", deg: 90 },
@@ -161,8 +276,28 @@ const DEMO_GROUPS: Grupo[] = [
   { id: "g3", spot: "Ilha do Guajiru", rota: "Downwind Guajiru → Tatajuba", horario: "13h30 – 17h", dia: "Sábado", confirmados: ["Caio", "Duda", "Léo"] },
 ];
 
+// Riders demo, cada um em lat/lng próximo do spot que ele curte
+const DEMO_RIDERS: Rider[] = [
+  { id: "r1",  name: "Léo",      spot: "Cumbuco",           lat: -3.60, lng: -38.72, level: "Avançado"     },
+  { id: "r2",  name: "Marina",   spot: "Cumbuco",           lat: -3.64, lng: -38.75, level: "Intermediário" },
+  { id: "r3",  name: "Pedrão",   spot: "Taíba",             lat: -3.50, lng: -38.88, level: "Avançado"     },
+  { id: "r4",  name: "Ana",      spot: "Paracuru",          lat: -3.39, lng: -39.02, level: "Iniciante"    },
+  { id: "r5",  name: "Duda",     spot: "Flecheiras",        lat: -3.22, lng: -39.26, level: "Avançado"     },
+  { id: "r6",  name: "Rafa",     spot: "Icaraizinho",       lat: -3.01, lng: -39.54, level: "Intermediário" },
+  { id: "r7",  name: "Caio",     spot: "Ilha do Guajiru",   lat: -2.94, lng: -39.98, level: "Avançado"     },
+  { id: "r8",  name: "Thibaut",  spot: "Preá",              lat: -2.84, lng: -40.34, level: "Avançado"     },
+  { id: "r9",  name: "Sofia",    spot: "Jericoacoara",      lat: -2.78, lng: -40.50, level: "Intermediário" },
+  { id: "r10", name: "Marcos",   spot: "Barra Grande",      lat: -2.89, lng: -41.67, level: "Intermediário" },
+  { id: "r11", name: "Bia",      spot: "Atins",             lat: -2.58, lng: -42.73, level: "Avançado"     },
+  { id: "r12", name: "Fred",     spot: "Natal",             lat: -5.77, lng: -35.19, level: "Avançado"     },
+  { id: "r13", name: "Camila",   spot: "Porto de Galinhas", lat: -8.49, lng: -34.98, level: "Intermediário" },
+  { id: "r14", name: "Vinícius", spot: "Maceió",            lat: -9.65, lng: -35.72, level: "Avançado"     },
+  { id: "r15", name: "Larissa",  spot: "Salvador",          lat: -12.96, lng: -38.49, level: "Iniciante"   },
+  { id: "r16", name: "Bruno",    spot: "Praia do Forte",    lat: -12.56, lng: -37.99, level: "Avançado"    },
+];
+
 const MIN_Z = 1;
-const MAX_Z = 5;
+const MAX_Z = 8; // aumentado, permite aproximação Windy-style
 
 function useIsMobile() {
   const [m, setM] = useState(false);
@@ -181,10 +316,45 @@ const nowTime = () => {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
+/* ============================================================
+ *  Geração do path da costa, curva suave interpolando os pontos
+ * ============================================================ */
+
+function coastPathD(): string {
+  const pts = COAST.map(([lat, lng]) => proj(lat, lng));
+
+  // Suaviza com Catmull-Rom -> Bezier (cardinal 0.5)
+  let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
+// Path fechado (continente), curva da costa + volta pelo interior/oeste
+function landPathD(): string {
+  const coast = coastPathD();
+  // Fecha o polígono descendo pra esquerda-inferior e subindo pela esquerda,
+  // representando o interior do Brasil (que sai pela borda oeste do viewBox)
+  return `${coast} L 0 100 L 0 0 Z`;
+}
+
+/* ============================================================
+ *  Componentes reutilizados (Compass, WindParticles, BrasilInset)
+ * ============================================================ */
+
 function Compass({ label, value, deg, accent }: { label: string; value: number; deg: number; accent: string }) {
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 88 88" className="w-[74px] md:w-[86px]">
+      <svg viewBox="0 0 88 88" className="w-[62px] md:w-[72px]">
         <circle cx="44" cy="44" r="40" fill="none" stroke="#0c1a20" strokeOpacity="0.1" strokeWidth="1.5" />
         {Array.from({ length: 8 }, (_, i) => {
           const a = (i * 45 * Math.PI) / 180;
@@ -208,7 +378,7 @@ function Compass({ label, value, deg, accent }: { label: string; value: number; 
         <text x="44" y="48" textAnchor="middle" fontSize="19" fontWeight="800" fill="#0c1a20">{value}</text>
         <text x="44" y="58" textAnchor="middle" fontSize="7" fontWeight="600" fill="#0c1a20" fillOpacity="0.45" letterSpacing="1">NÓS</text>
       </svg>
-      <span className="mt-1 text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: accent }}>{label}</span>
+      <span className="mt-0.5 text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: accent }}>{label}</span>
     </div>
   );
 }
@@ -216,29 +386,29 @@ function Compass({ label, value, deg, accent }: { label: string; value: number; 
 function SpotPanel({ spot, onClose, compact }: { spot: string; onClose?: () => void; compact?: boolean }) {
   const w = SPOT_WIND[spot] || { avg: 20, gust: 25, dir: "E", deg: 90 };
   return (
-    <div className={`rounded-2xl border border-black/10 bg-white ${compact ? "px-4 py-3" : "p-5"} shadow-2xl shadow-black/40`}>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-[#0098c0]" />
-            <span className="font-semibold text-[#0c1a20] text-sm md:text-base">{spot}</span>
+    <div className={`rounded-2xl border border-black/10 bg-white ${compact ? "px-3 py-2.5" : "p-3.5"} shadow-2xl shadow-black/40`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 text-[#0098c0] shrink-0" />
+            <span className="font-semibold text-[#0c1a20] text-[13px] truncate">{spot}</span>
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#0c1a20]/55">
-            <Navigation2 className="h-3 w-3" style={{ transform: `rotate(${w.deg}deg)` }} />
-            Vento de {w.dir} · agora
+          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-[#0c1a20]/55">
+            <Navigation2 className="h-2.5 w-2.5" style={{ transform: `rotate(${w.deg}deg)` }} />
+            Vento de {w.dir}, agora
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-1.5 text-[#0c1a20]/45 hover:text-[#0c1a20] hover:bg-black/5 transition">
-            <X className="h-4 w-4" />
+          <button onClick={onClose} aria-label="Fechar" className="rounded-full p-1 text-[#0c1a20]/45 hover:text-[#0c1a20] hover:bg-black/5 transition shrink-0">
+            <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
-      <div className="mt-3 flex items-start justify-center gap-5 md:gap-7">
+      <div className="mt-2 flex items-start justify-center gap-4">
         <Compass label="Vento médio" value={w.avg} deg={w.deg} accent="#18b26b" />
         <Compass label="Rajada" value={w.gust} deg={w.deg} accent="#0098c0" />
       </div>
-      <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
+      <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
         <div className="h-full rounded-full" style={{ width: `${Math.min(100, (w.avg / 40) * 100)}%`, background: "linear-gradient(90deg,#18b26b,#a5d922)" }} />
       </div>
     </div>
@@ -247,9 +417,9 @@ function SpotPanel({ spot, onClose, compact }: { spot: string; onClose?: () => v
 
 function WindParticles() {
   const lines = useMemo(
-    () => Array.from({ length: 26 }, (_, i) => ({
-      y: 4 + (i * 67) % 88, delay: (i * 0.53) % 6, dur: 5 + (i % 4) * 1.6,
-      len: 30 + (i % 3) * 22, op: 0.12 + (i % 3) * 0.08,
+    () => Array.from({ length: 44 }, (_, i) => ({
+      y: 2 + (i * 41) % 96, delay: (i * 0.31) % 6, dur: 4.5 + (i % 5) * 1.4,
+      len: 24 + (i % 4) * 20, op: 0.10 + (i % 3) * 0.08,
     })), []
   );
   return (
@@ -258,7 +428,7 @@ function WindParticles() {
         <span key={i} className="absolute h-px rounded-full"
           style={{
             top: `${l.y}%`, left: "-15%", width: `${l.len}px`,
-            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)",
+            background: "linear-gradient(90deg, transparent, rgba(200,235,255,0.85), transparent)",
             opacity: l.op, animation: `wiu-wind ${l.dur}s linear ${l.delay}s infinite`,
           }} />
       ))}
@@ -277,7 +447,6 @@ function BrasilInset() {
         d="M 25 15 L 40 12 Q 55 10 68 15 Q 78 20 85 30 Q 92 40 90 50 Q 88 62 82 72 Q 75 82 65 88 Q 55 92 45 90 Q 35 88 28 82 Q 18 75 15 65 Q 10 55 12 45 Q 15 30 20 22 Q 22 18 25 15 Z"
         fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round"
       />
-      {/* Nordeste realçado — vai do MA (topo) descendo até a BA (leste) */}
       <path
         d="M 55 18 Q 68 16 78 22 Q 87 28 89 38 Q 88 50 82 60 Q 78 68 72 70 Q 65 68 62 60 Q 60 48 60 38 Q 58 28 55 22 Q 55 20 55 18 Z"
         fill="#00b4d8" fillOpacity="0.35" stroke="#3fd0f0" strokeWidth="0.8"
@@ -290,6 +459,10 @@ function BrasilInset() {
     </svg>
   );
 }
+
+/* ============================================================
+ *  Componente principal
+ * ============================================================ */
 
 export function ComunidadeMapa() {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -310,6 +483,7 @@ export function ComunidadeMapa() {
   const dragging = useRef(false);
   const moved = useRef(false);
   const lastTap = useRef(0);
+  const [cursor, setCursor] = useState<{ lat: number; lng: number } | null>(null);
 
   const clamp = useCallback((x: number, y: number, s: number) => {
     const el = viewRef.current;
@@ -325,6 +499,22 @@ export function ComunidadeMapa() {
     setT(clamp(px - (px - x) * k, py - (py - y) * k, ns));
   }, [clamp]);
 
+  function screenToGeo(px: number, py: number) {
+    const el = viewRef.current;
+    if (!el) return null;
+    const { width: W, height: H } = el.getBoundingClientRect();
+    const { x, y, s } = tRef.current;
+    // pixel do viewport -> pixel do mapa base
+    const mx = (px - x) / s;
+    const my = (py - y) / s;
+    // 0..1 no mapa base
+    const nx = mx / W;
+    const ny = my / H;
+    const lng = LNG_MIN + nx * (LNG_MAX - LNG_MIN);
+    const lat = LAT_MAX - ny * (LAT_MAX - LAT_MIN);
+    return { lat, lng };
+  }
+
   function onPointerDown(e: React.PointerEvent) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -338,21 +528,28 @@ export function ComunidadeMapa() {
 
   function onPointerMove(e: React.PointerEvent) {
     const prev = pointers.current.get(e.pointerId);
-    if (!prev) return;
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2 && pinch.current) {
-      const [a, b] = [...pointers.current.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      const ns = Math.min(MAX_Z, Math.max(MIN_Z, pinch.current.s * (d / pinch.current.d)));
-      const rect = viewRef.current!.getBoundingClientRect();
-      zoomAt((a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top, ns);
-      return;
+    if (prev) {
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.current.size === 2 && pinch.current) {
+        const [a, b] = [...pointers.current.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        const ns = Math.min(MAX_Z, Math.max(MIN_Z, pinch.current.s * (d / pinch.current.d)));
+        const rect = viewRef.current!.getBoundingClientRect();
+        zoomAt((a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top, ns);
+        return;
+      }
+      if (dragging.current) {
+        const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+        if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
+        const { x, y, s } = tRef.current;
+        setT(clamp(x + dx, y + dy, s));
+      }
     }
-    if (dragging.current) {
-      const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-      if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
-      const { x, y, s } = tRef.current;
-      setT(clamp(x + dx, y + dy, s));
+    // atualiza coordenadas do cursor (só desktop)
+    if (!isMobile && viewRef.current) {
+      const rect = viewRef.current.getBoundingClientRect();
+      const g = screenToGeo(e.clientX - rect.left, e.clientY - rect.top);
+      if (g) setCursor(g);
     }
   }
 
@@ -388,7 +585,7 @@ export function ComunidadeMapa() {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const s = tRef.current.s;
-      const ns = Math.min(MAX_Z, Math.max(MIN_Z, s * (e.deltaY < 0 ? 1.12 : 0.89)));
+      const ns = Math.min(MAX_Z, Math.max(MIN_Z, s * (e.deltaY < 0 ? 1.15 : 0.87)));
       zoomAt(e.clientX - rect.left, e.clientY - rect.top, ns);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -411,6 +608,12 @@ export function ComunidadeMapa() {
   const inv = 1 / t.s;
   const chatOpenDesktop = open && !isMobile;
 
+  // Level of detail baseado no zoom
+  const showAllSpotNames = t.s >= 1.4;
+  const showCidadesRef = t.s >= 2.2;
+  const coastD = useMemo(() => coastPathD(), []);
+  const landD = useMemo(() => landPathD(), []);
+
   return (
     <section id="comunidade" ref={sectionRef} className="relative overflow-hidden"
       style={{ background: "linear-gradient(180deg, #0a0a0a 0%, #07222e 22%, #063246 55%, #07222e 88%, #0a0a0a 100%)" }}>
@@ -426,7 +629,7 @@ export function ComunidadeMapa() {
           </h2>
           <p className="mt-6 text-lg md:text-xl text-white/60 leading-relaxed max-w-xl">
             Do Maranhão à Bahia, a rota do vento que faz do Nordeste o paraíso mundial do kite.
-            Arrasta, dá zoom, clica num ponto verde: vê o vento do pico e marca de velejar junto.
+            Arrasta, dá zoom, clica num ponto verde, vê o vento do pico e marca de velejar junto.
           </p>
         </motion.div>
 
@@ -439,168 +642,210 @@ export function ComunidadeMapa() {
         >
           <div
             ref={viewRef}
-            className="relative aspect-[16/12] md:aspect-[21/12] cursor-grab active:cursor-grabbing select-none touch-none"
+            className="relative aspect-[16/12] md:aspect-[16/12] cursor-grab active:cursor-grabbing select-none touch-none"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
+            onPointerLeave={() => setCursor(null)}
             onDoubleClick={onDoubleClick}
           >
             <div className="absolute inset-0" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.s})`, transformOrigin: "0 0" }}>
-              <div className="absolute inset-0" style={{ background: "linear-gradient(200deg, #0a2f47 0%, #0e4a6b 40%, #1174a3 75%, #1a8ec4 100%)" }} />
+              {/* Oceano base */}
+              <div className="absolute inset-0" style={{ background: "linear-gradient(200deg, #08283f 0%, #0d4468 40%, #106a99 75%, #1584b8 100%)" }} />
 
-              <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-30" aria-hidden>
-                <pattern id="ondas" x="0" y="0" width="6" height="4" patternUnits="userSpaceOnUse">
-                  <path d="M 0 2 Q 1.5 1 3 2 T 6 2" fill="none" stroke="#3fd0f0" strokeWidth="0.15" opacity="0.4" />
-                </pattern>
-                <rect x="0" y="0" width="100" height="15" fill="url(#ondas)" />
-                <rect x="65" y="15" width="35" height="47" fill="url(#ondas)" />
+              {/* Grid discreto de latitude/longitude, feeling Windy */}
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-25" aria-hidden>
+                <defs>
+                  <pattern id="wave" x="0" y="0" width="5" height="3" patternUnits="userSpaceOnUse">
+                    <path d="M 0 1.5 Q 1.25 0.5 2.5 1.5 T 5 1.5" fill="none" stroke="#7fd6f5" strokeWidth="0.12" opacity="0.5" />
+                  </pattern>
+                </defs>
+                <rect x="0" y="0" width="100" height="100" fill="url(#wave)" />
+                {/* Meridianos */}
+                {[-42, -40, -38, -36].map((lng) => {
+                  const x = ((lng - LNG_MIN) / (LNG_MAX - LNG_MIN)) * 100;
+                  return <line key={lng} x1={x} y1={0} x2={x} y2={100} stroke="#7fd6f5" strokeWidth="0.06" strokeDasharray="0.5 0.8" opacity="0.4" />;
+                })}
+                {/* Paralelos */}
+                {[-4, -6, -8, -10, -12, -14, -16].map((lat) => {
+                  const y = ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * 100;
+                  return <line key={lat} x1={0} y1={y} x2={100} y2={y} stroke="#7fd6f5" strokeWidth="0.06" strokeDasharray="0.5 0.8" opacity="0.4" />;
+                })}
               </svg>
 
               <WindParticles />
 
-              {/* MAPA — LITORAL EM L: MA→CE horizontal, CE→BA vertical */}
-              <svg viewBox="0 0 100 62" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+              {/* MAPA — CONTORNO REAL DO LITORAL */}
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
                 <defs>
-                  <linearGradient id="terra" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#1a5c3e" />
-                    <stop offset="50%" stopColor="#134a30" />
-                    <stop offset="100%" stopColor="#0d3520" />
+                  <linearGradient id="terra9" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#1f6647" />
+                    <stop offset="50%" stopColor="#134a32" />
+                    <stop offset="100%" stopColor="#0c3020" />
                   </linearGradient>
-                  <linearGradient id="areia" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#e8d4a0" />
-                    <stop offset="100%" stopColor="#c8b48a" />
-                  </linearGradient>
-                  <radialGradient id="delta" cx="0.5" cy="0.5" r="0.5">
+                  <radialGradient id="lencois9" cx="0.5" cy="0.5" r="0.5">
                     <stop offset="0%" stopColor="#5fd8f5" stopOpacity="0.55" />
                     <stop offset="100%" stopColor="#5fd8f5" stopOpacity="0" />
                   </radialGradient>
                 </defs>
 
-                {/* Faixa de areia (mais próxima do mar) */}
-                <path
-                  d="M 0 62 L 0 17
-                     Q 8 16.5 15 16.8
-                     Q 22 17 30 17.5
-                     Q 42 20 50 24
-                     Q 55 27 58 32
-                     Q 61 36 62 42
-                     Q 63 48 61 54
-                     Q 58 58 53 60
-                     Q 48 61.5 42 62
-                     Z"
-                  fill="url(#areia)"
-                />
+                {/* Continente (polígono fechado) */}
+                <path d={landD} fill="url(#terra9)" />
 
-                {/* Terra por cima (deixa faixa de areia visível na costa) */}
-                <path
-                  d="M 0 62 L 0 19
-                     Q 8 18.5 15 18.8
-                     Q 22 19 30 19.5
-                     Q 42 22 50 26
-                     Q 55 29 58 34
-                     Q 61 38 62 44
-                     Q 63 50 61 56
-                     Q 57 59 52 60.5
-                     Q 47 61.7 41 62
-                     Z"
-                  fill="url(#terra)"
-                />
+                {/* Linha da costa em destaque */}
+                <path d={coastD} fill="none" stroke="#e4d3a4" strokeWidth="0.35" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                <path d={coastD} fill="none" stroke="#f0dfae" strokeWidth="0.15" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
 
-                {/* Lençóis Maranhenses — dunas e lagoas */}
-                <circle cx="4" cy="22" r="6" fill="url(#delta)" />
-                <ellipse cx="2" cy="21" rx="1.5" ry="0.7" fill="#5fd8f5" opacity="0.6" />
-                <ellipse cx="4.5" cy="22.5" rx="1.2" ry="0.6" fill="#5fd8f5" opacity="0.55" />
-                <ellipse cx="7" cy="21.5" rx="1" ry="0.5" fill="#5fd8f5" opacity="0.5" />
-                <ellipse cx="3" cy="24" rx="0.9" ry="0.5" fill="#5fd8f5" opacity="0.45" />
-                <ellipse cx="6" cy="23.5" rx="0.7" ry="0.4" fill="#5fd8f5" opacity="0.5" />
-                <ellipse cx="8.5" cy="23" rx="0.6" ry="0.35" fill="#5fd8f5" opacity="0.4" />
+                {/* Lençóis Maranhenses, dunas e lagoas */}
+                {(() => {
+                  const c = proj(-2.55, -43.0);
+                  return (
+                    <>
+                      <circle cx={c.x} cy={c.y - 2} r="4" fill="url(#lencois9)" />
+                      <ellipse cx={c.x - 2} cy={c.y - 2.5} rx="1.1" ry="0.5" fill="#5fd8f5" opacity="0.55" />
+                      <ellipse cx={c.x + 1} cy={c.y - 2} rx="0.9" ry="0.45" fill="#5fd8f5" opacity="0.5" />
+                      <ellipse cx={c.x - 0.8} cy={c.y - 1} rx="0.7" ry="0.35" fill="#5fd8f5" opacity="0.45" />
+                    </>
+                  );
+                })()}
 
-                {/* Rios (linhas azul-claro esparsas) */}
-                <path d="M 12 62 Q 11 55 9 48 Q 8 42 10 35" fill="none" stroke="#3fd0f0" strokeWidth="0.3" opacity="0.35" />
-                <path d="M 35 62 Q 34 55 32 48" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
-                <path d="M 25 62 Q 26 58 24 52" fill="none" stroke="#3fd0f0" strokeWidth="0.25" opacity="0.3" />
-                <path d="M 45 62 Q 46 55 44 45" fill="none" stroke="#3fd0f0" strokeWidth="0.22" opacity="0.28" />
+                {/* Rios (linhas azul-claro esparsas, dentro do continente) */}
+                <path d={`M ${proj(-3.72,-38.54).x} ${proj(-3.72,-38.54).y} Q ${proj(-5.5,-39.5).x} ${proj(-5.5,-39.5).y} ${proj(-7,-40).x} ${proj(-7,-40).y}`} fill="none" stroke="#3fd0f0" strokeWidth="0.15" opacity="0.35" />
+                <path d={`M ${proj(-2.9,-41.75).x} ${proj(-2.9,-41.75).y} Q ${proj(-5,-42.5).x} ${proj(-5,-42.5).y} ${proj(-7.5,-43).x} ${proj(-7.5,-43).y}`} fill="none" stroke="#3fd0f0" strokeWidth="0.15" opacity="0.3" />
 
-                {/* Rótulos de estados */}
-                <text x="7" y="40" fontSize="1.5" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">MARANHÃO</text>
-                <text x="14" y="45" fontSize="1.3" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.3">PIAUÍ</text>
-                <text x="28" y="45" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">CEARÁ</text>
-                <text x="49" y="37" fontSize="1.1" fontWeight="700" fill="#ffffff" fillOpacity="0.17" letterSpacing="0.25">R. G. NORTE</text>
-                <text x="50" y="42" fontSize="1.1" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.25">PARAÍBA</text>
-                <text x="47" y="47" fontSize="1.2" fontWeight="700" fill="#ffffff" fillOpacity="0.17" letterSpacing="0.25">PERNAMBUCO</text>
-                <text x="48" y="51" fontSize="1" fontWeight="700" fill="#ffffff" fillOpacity="0.15" letterSpacing="0.25">ALAGOAS</text>
-                <text x="46" y="55" fontSize="1" fontWeight="700" fill="#ffffff" fillOpacity="0.13" letterSpacing="0.25">SERGIPE</text>
-                <text x="35" y="59" fontSize="1.6" fontWeight="700" fill="#ffffff" fillOpacity="0.18" letterSpacing="0.3">BAHIA</text>
-
-                {/* Rosa dos ventos */}
-                <g transform="translate(88 8)" opacity="0.35">
-                  <circle cx="0" cy="0" r="3.5" fill="none" stroke="#ffffff" strokeWidth="0.15" />
-                  <path d="M0 -3.5 L0.5 -0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" />
-                  <path d="M0 3.5 L0.5 0.5 L0 0 L-0.5 0.5 Z" fill="#ffffff" opacity="0.6" />
-                  <path d="M3.5 0 L0.5 0.5 L0 0 L0.5 -0.5 Z" fill="#ffffff" opacity="0.6" />
-                  <path d="M-3.5 0 L-0.5 0.5 L0 0 L-0.5 -0.5 Z" fill="#ffffff" opacity="0.6" />
-                  <text x="0" y="-4.5" fontSize="1.4" fill="#ffffff" textAnchor="middle" fontWeight="700">N</text>
+                {/* Setas de vento animadas, tipo Windy, distribuídas no oceano */}
+                <g opacity="0.35" fill="none" stroke="#8be0ff" strokeWidth="0.12" strokeLinecap="round">
+                  {[
+                    [10, 10], [30, 8], [50, 6], [70, 12], [88, 20],
+                    [92, 35], [88, 50], [90, 65], [85, 80], [75, 90],
+                    [55, 30], [40, 22], [25, 15], [80, 45], [78, 60],
+                  ].map(([cx, cy], i) => (
+                    <g key={i} transform={`translate(${cx} ${cy}) rotate(200)`}>
+                      <line x1={-3} y1={0} x2={3} y2={0} />
+                      <path d="M 1.5 -1 L 3 0 L 1.5 1" />
+                    </g>
+                  ))}
                 </g>
 
-                {/* Setas de vento */}
-                <g opacity="0.25" fill="none" stroke="#3fd0f0" strokeWidth="0.15" strokeLinecap="round">
-                  <path d="M 95 15 L 85 15 M 88 13.5 L 85 15 L 88 16.5" />
-                  <path d="M 95 8 L 87 8 M 89.5 6.7 L 87 8 L 89.5 9.3" />
-                  <path d="M 95 22 L 87 22 M 89.5 20.7 L 87 22 L 89.5 23.3" />
-                  <path d="M 95 40 L 88 40 M 90 39 L 88 40 L 90 41" />
-                  <path d="M 95 50 L 88 50 M 90 49 L 88 50 L 90 51" />
+                {/* Rosa dos ventos */}
+                <g transform="translate(92 8)" opacity="0.4">
+                  <circle cx="0" cy="0" r="3.5" fill="none" stroke="#ffffff" strokeWidth="0.15" />
+                  <path d="M0 -3.5 L0.6 -0.6 L0 0 L-0.6 -0.6 Z" fill="#ffffff" />
+                  <path d="M0 3.5 L0.6 0.6 L0 0 L-0.6 0.6 Z" fill="#ffffff" opacity="0.6" />
+                  <path d="M3.5 0 L0.6 0.6 L0 0 L0.6 -0.6 Z" fill="#ffffff" opacity="0.6" />
+                  <path d="M-3.5 0 L-0.6 0.6 L0 0 L-0.6 -0.6 Z" fill="#ffffff" opacity="0.6" />
+                  <text x="0" y="-4.5" fontSize="1.6" fill="#ffffff" textAnchor="middle" fontWeight="700">N</text>
                 </g>
               </svg>
 
-              {/* PINS DOS SPOTS */}
-              {SPOTS.map((s) => (
-                <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y + 3.5}%` }}>
-                  <div className="flex flex-col items-center gap-0.5" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
-                    <MapPin className={s.principal ? "h-3 w-3 text-white/60" : "h-2.5 w-2.5 text-white/35"} />
+              {/* RÓTULOS DE ESTADOS (compensam zoom) */}
+              {ESTADOS.map((e) => {
+                const p = proj(e.lat, e.lng);
+                const base = e.size === "lg" ? 15 : e.size === "md" ? 12 : 10;
+                return (
+                  <div key={e.name} className="absolute pointer-events-none"
+                    style={{ left: `${p.x}%`, top: `${p.y}%`, transform: `translate(-50%,-50%) scale(${inv})` }}>
                     <span
-                      className={
-                        s.principal
-                          ? "text-[8px] md:text-[10px] uppercase tracking-[0.16em] text-white/85 whitespace-nowrap font-semibold"
-                          : "text-[7px] md:text-[8.5px] uppercase tracking-[0.12em] text-white/55 whitespace-nowrap font-medium"
-                      }
-                      style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)" }}
+                      className="uppercase font-bold whitespace-nowrap"
+                      style={{
+                        fontSize: `${base}px`,
+                        color: "rgba(255,255,255,0.14)",
+                        letterSpacing: "0.35em",
+                        textShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                      }}
                     >
-                      {s.name}
+                      {e.name}
                     </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+
+              {/* CIDADES DE REFERÊNCIA (LOD alto) */}
+              <AnimatePresence>
+                {showCidadesRef && CIDADES_REF.map((c) => {
+                  const p = proj(c.lat, c.lng);
+                  return (
+                    <motion.div
+                      key={c.name}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="absolute -translate-x-1/2 pointer-events-none"
+                      style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                    >
+                      <div className="flex flex-col items-center gap-0.5" style={{ transform: `scale(${inv})`, transformOrigin: "top center" }}>
+                        <span className="h-1 w-1 rounded-full bg-white/45" />
+                        <span
+                          className="text-[8px] tracking-[0.06em] text-white/45 whitespace-nowrap"
+                          style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}
+                        >
+                          {c.name}
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {/* PINS DOS SPOTS */}
+              {SPOTS.map((s) => {
+                const p = proj(s.lat, s.lng);
+                const visible = s.principal || showAllSpotNames;
+                return (
+                  <div key={s.name} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: `${p.x}%`, top: `${p.y + 1.5}%` }}>
+                    <div className="flex flex-col items-center gap-0.5" style={{ transform: `scale(${inv})`, transformOrigin: "top center", opacity: visible ? 1 : 0, transition: "opacity 0.25s" }}>
+                      <MapPin className={s.principal ? "h-3 w-3 text-white/70" : "h-2.5 w-2.5 text-white/40"} />
+                      <span
+                        className={
+                          s.principal
+                            ? "text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white/90 whitespace-nowrap font-semibold"
+                            : "text-[7.5px] md:text-[8.5px] uppercase tracking-[0.12em] text-white/60 whitespace-nowrap font-medium"
+                        }
+                        style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)" }}
+                      >
+                        {s.name}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* RIDERS */}
-              {DEMO_RIDERS.map((r, i) => (
-                <motion.div
-                  key={r.id}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={inView ? { scale: 1, opacity: 1 } : {}}
-                  transition={{ delay: 0.6 + i * 0.08, type: "spring", stiffness: 300, damping: 18 }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${r.x}%`, top: `${r.y}%` }}
-                >
-                  <button
-                    onClick={() => riderClick(r)}
-                    className="relative block group"
-                    style={{ transform: `scale(${inv})` }}
-                    aria-label={`Falar com ${r.name} em ${r.spot}`}
+              {DEMO_RIDERS.map((r, i) => {
+                const p = proj(r.lat, r.lng);
+                return (
+                  <motion.div
+                    key={r.id}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={inView ? { scale: 1, opacity: 1 } : {}}
+                    transition={{ delay: 0.6 + i * 0.08, type: "spring", stiffness: 300, damping: 18 }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2"
+                    style={{ left: `${p.x}%`, top: `${p.y}%` }}
                   >
-                    <span className="absolute inset-0 rounded-full bg-[#39e58c]"
-                      style={{ animation: "wiu-ping 2.4s cubic-bezier(0,0,0.2,1) infinite", animationDelay: `${i * 0.3}s` }} />
-                    <span className="relative block h-3.5 w-3.5 md:h-4 md:w-4 rounded-full bg-[#39e58c] ring-2 ring-white/90 shadow-[0_0_14px_rgba(57,229,140,0.9)] transition-transform group-hover:scale-125" />
-                    <span className="absolute left-1/2 -translate-x-1/2 -top-8 whitespace-nowrap rounded-full bg-black/85 backdrop-blur px-2.5 py-1 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      {r.name} · {r.spot}
-                    </span>
-                  </button>
-                </motion.div>
-              ))}
+                    <button
+                      onClick={() => riderClick(r)}
+                      className="relative block group"
+                      style={{ transform: `scale(${inv})` }}
+                      aria-label={`Falar com ${r.name} em ${r.spot}`}
+                    >
+                      <span className="absolute inset-0 rounded-full bg-[#39e58c]"
+                        style={{ animation: "wiu-ping 2.4s cubic-bezier(0,0,0.2,1) infinite", animationDelay: `${i * 0.3}s` }} />
+                      <span className="relative block h-3.5 w-3.5 md:h-4 md:w-4 rounded-full bg-[#39e58c] ring-2 ring-white/90 shadow-[0_0_14px_rgba(57,229,140,0.9)] transition-transform group-hover:scale-125" />
+                      <span className="absolute left-1/2 -translate-x-1/2 -top-8 whitespace-nowrap rounded-full bg-black/85 backdrop-blur px-2.5 py-1 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        {r.name}, {r.spot}
+                      </span>
+                    </button>
+                  </motion.div>
+                );
+              })}
             </div>
 
-            {/* HUD fixo */}
-            <div className="absolute top-3 left-3 md:top-6 md:left-6 flex items-center gap-2.5 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 md:px-4 pointer-events-none">
+            {/* ============ HUD fixo (não escala com zoom) ============ */}
+
+            {/* Contador de riders (topo esquerda) */}
+            <div className="absolute top-3 left-3 md:top-4 md:left-4 flex items-center gap-2.5 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 pointer-events-none">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#39e58c] opacity-75" style={{ animation: "wiu-ping 1.8s infinite" }} />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#39e58c]" />
@@ -608,21 +853,23 @@ export function ComunidadeMapa() {
               <span className="text-[11px] md:text-sm text-white font-medium tabular-nums">{DEMO_RIDERS.length} riders no vento agora</span>
             </div>
 
-            <div className="absolute top-3 right-3 md:top-6 md:right-6 flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 md:px-4">
+            {/* Vento + grupos (topo direita) */}
+            <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2">
                 <Wind className="h-3.5 w-3.5 text-[#3fd0f0]" />
-                <span className="text-[11px] md:text-sm text-white tabular-nums">22 nós · E</span>
+                <span className="text-[11px] md:text-sm text-white tabular-nums">22 nós, E</span>
               </div>
               <button
                 onClick={() => setShowGroups(true)}
-                className="flex items-center gap-2 rounded-full bg-[#00b4d8] px-3.5 py-2 md:px-4 text-[11px] md:text-sm font-semibold text-white shadow-lg shadow-[#00b4d8]/30 hover:brightness-110 transition"
+                className="flex items-center gap-2 rounded-full bg-[#00b4d8] px-3.5 py-2 text-[11px] md:text-sm font-semibold text-white shadow-lg shadow-[#00b4d8]/30 hover:brightness-110 transition"
               >
                 <Users className="h-3.5 w-3.5" /> Grupos de velejo
                 <span className="rounded-full bg-white/25 px-1.5 text-[10px] tabular-nums">{DEMO_GROUPS.length}</span>
               </button>
             </div>
 
-            <div className="absolute bottom-3 left-3 md:bottom-6 md:left-6 flex flex-col items-start gap-2">
+            {/* Zoom buttons (meio esquerda) */}
+            <div className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 flex flex-col items-start gap-2">
               <div className="flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
                 <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
                 <div className="h-px bg-white/10" />
@@ -635,6 +882,14 @@ export function ComunidadeMapa() {
               </div>
             </div>
 
+            {/* Coordenadas do cursor (rodapé centro, tipo Windy) */}
+            {cursor && !isMobile && !open && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-black/55 backdrop-blur border border-white/10 px-2.5 py-1 text-[10px] text-white/65 tabular-nums pointer-events-none">
+                {cursor.lat.toFixed(2)}°, {cursor.lng.toFixed(2)}°
+              </div>
+            )}
+
+            {/* Inset do Brasil (rodapé direita), esconde quando chat aberto */}
             <AnimatePresence>
               {!chatOpenDesktop && (
                 <motion.div
@@ -643,22 +898,35 @@ export function ComunidadeMapa() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  className="absolute bottom-3 right-3 md:bottom-6 md:right-6 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
+                  className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
                 >
                   <BrasilInset />
                 </motion.div>
               )}
             </AnimatePresence>
 
+            {/* ============ PAINÉIS DE INTERAÇÃO ============ */}
+            {/* SpotPanel no canto INFERIOR-ESQUERDO, ChatCard no canto INFERIOR-DIREITO */}
             <AnimatePresence>
               {open && !isMobile && (
                 <>
-                  <motion.div key="spot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                  <motion.div
+                    key="spot"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
                     transition={{ type: "spring", damping: 26, stiffness: 300 }}
-                    className="absolute top-[35%] left-6 w-72 z-20">
+                    className="absolute left-16 md:left-20 bottom-4 w-60 z-20"
+                  >
                     <SpotPanel spot={open.spot} />
                   </motion.div>
-                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute top-[35%] right-6 w-[calc(100%-2rem)] max-w-xs z-20" />
+                  <ChatCard
+                    key="chat"
+                    rider={open}
+                    onClose={() => setOpen(null)}
+                    className="absolute right-4 bottom-4 w-[300px] z-20"
+                    compactHeight
+                  />
                 </>
               )}
             </AnimatePresence>
@@ -685,7 +953,7 @@ export function ComunidadeMapa() {
                 <span className="text-white/40 group-hover:text-[#3fd0f0] transition-colors">→</span>
               </button>
               <p className="text-center text-xs text-white/35">
-                Arrasta pra explorar · duplo clique dá zoom · pontos verdes = riders conectados agora.
+                Arrasta pra explorar, duplo clique dá zoom, pontos verdes = riders conectados agora.
               </p>
             </motion.div>
           )}
@@ -749,7 +1017,7 @@ export function ComunidadeMapa() {
                             </div>
                             <div className="mt-1.5 font-semibold text-white leading-snug">{g.rota}</div>
                             <div className="mt-1 flex items-center gap-1.5 text-xs text-white/55">
-                              <CalendarClock className="h-3.5 w-3.5" /> {g.dia} · {g.horario}
+                              <CalendarClock className="h-3.5 w-3.5" /> {g.dia}, {g.horario}
                             </div>
                           </div>
                           <div className="text-right shrink-0">
@@ -881,7 +1149,7 @@ function ForecastModal({ onClose }: { onClose: () => void }) {
 
           <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-[#0c1a20]/35">
             <span className="h-px w-8 bg-black/15" />
-            Atualizado agora · dados demonstrativos
+            Atualizado agora, dados demonstrativos
             <span className="h-px w-8 bg-black/15" />
           </div>
         </div>
@@ -970,7 +1238,9 @@ function SpotForecastCard({ name }: { name: string }) {
 }
 
 /* Chat estilo WhatsApp */
-function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onClose: () => void; className?: string; full?: boolean }) {
+function ChatCard({
+  rider, onClose, className = "", full, compactHeight,
+}: { rider: Rider; onClose: () => void; className?: string; full?: boolean; compactHeight?: boolean }) {
   const [msgs, setMsgs] = useState<{ me: boolean; text: string; time: string }[]>([]);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
@@ -1002,7 +1272,7 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-white truncate">{rider.name}</div>
-          <div className="text-[11px] text-white/50">{rider.spot} · {rider.level}</div>
+          <div className="text-[11px] text-white/50">{rider.spot}, {rider.level}</div>
         </div>
         <button onClick={onClose} aria-label="Fechar conversa" className="rounded-full p-1.5 text-white/60 hover:text-white hover:bg-white/10 transition">
           <X className="h-4 w-4" />
@@ -1011,7 +1281,7 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
 
       <div
         ref={boxRef}
-        className={`${full ? "flex-1" : "h-64"} overflow-y-auto px-3.5 py-3 space-y-2`}
+        className={`${full ? "flex-1" : compactHeight ? "h-40" : "h-64"} overflow-y-auto px-3.5 py-3 space-y-2`}
         style={{
           background: "#f7f5f0",
           backgroundImage: "radial-gradient(circle at 1px 1px, rgba(13,13,13,0.05) 1px, transparent 0)",
@@ -1019,7 +1289,7 @@ function ChatCard({ rider, onClose, className = "", full }: { rider: Rider; onCl
         }}
       >
         {msgs.length === 0 && !typing && (
-          <div className="text-center py-6 px-4">
+          <div className="text-center py-4 px-4">
             <p className="text-[11px] text-[#0c1a20]/50 leading-relaxed">
               Diz um "e aí, como tá o vento em {rider.spot}?"
             </p>
