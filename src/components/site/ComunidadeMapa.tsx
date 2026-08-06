@@ -537,10 +537,10 @@ export function ComunidadeMapa() {
                 <>
                   <motion.div key="spot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                     transition={{ type: "spring", damping: 26, stiffness: 300 }}
-                    className="absolute top-24 left-6 w-72 z-20">
+                    className="absolute top-[35%] left-6 w-72 z-20">
                     <SpotPanel spot={open.spot} />
                   </motion.div>
-                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute top-24 right-6 w-[calc(100%-2rem)] max-w-xs z-20" />
+                  <ChatCard key="chat" rider={open} onClose={() => setOpen(null)} className="absolute top-[35%] right-6 w-[calc(100%-2rem)] max-w-xs z-20" />
                 </>
               )}
             </AnimatePresence>
