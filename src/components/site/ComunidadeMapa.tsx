@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets, UserPlus, Sparkles } from "lucide-react";
+import { X, Send, Wind, MapPin, Plus, Minus, Maximize2, Users, Check, CheckCheck, CalendarClock, Navigation2, CloudSun, Search, Waves, Droplets, UserPlus, Sparkles, ChevronUp, ChevronDown, Minimize2, MousePointerClick } from "lucide-react";
 
 /**
- * Mapa da comunidade v10.
+ * Mapa da comunidade v11.
  *
- * Muda em relação à v9:
- *  - Clique num rider agora "puxa" o mapa (zoom + pan animados) até enquadrar
- *    o rider na metade esquerda, deixando espaço pro chat na direita. Ao
- *    fechar o chat, o mapa volta pro estado exato de antes.
- *  - Chat ganha barra de ações (Criar grupo / Convidar) com mini-form inline
- *    e popover de convite. Grupos criados persistem na sessão e entram na
- *    lista "Grupos de velejo" do topo do mapa.
- *  - Mensagens agora suportam type: 'user' | 'reply' | 'system' (system
- *    aparece como cardzinho neutro no centro do chat).
- *
- * DEMO_RIDERS / SPOT_WIND / SPOT_TIDES / DEMO_GROUPS seguem hardcoded.
- * Sem em-dashes (— substituído por vírgula).
+ * Muda em relação à v10:
+ *  - Desktop: mapa começa em modo compacto (aspect 16/5) com overlay CTA
+ *    "Toque pra explorar o mapa". Wheel e drag passam direto pra página.
+ *    Ao clicar o overlay, expande pro aspect 16/12 usual, todo o resto
+ *    (zoom, drag, riders, painéis) volta a funcionar como na v10.
+ *  - Handle de scroll da página na borda direita do mapa (só expandido):
+ *    setinha pra cima, setinha pra baixo (segurar = scroll contínuo) e
+ *    botão de minimizar (volta pro modo compacto).
+ *  - Mobile ignora o modo compacto: sempre expandido (comportamento igual v10).
  */
 
 /* ============================================================
@@ -473,6 +470,9 @@ export function ComunidadeMapa() {
   const [showForecast, setShowForecast] = useState(false);
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [groups, setGroups] = useState<Grupo[]>(DEMO_GROUPS);
+  const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
 
   const viewRef = useRef<HTMLDivElement>(null);
   const [t, setT] = useState({ x: 0, y: 0, s: 1 });
@@ -548,7 +548,13 @@ export function ComunidadeMapa() {
     return { lat, lng };
   }
 
+  function isMapInteractive() {
+    // No mobile o mapa sempre é interativo. No desktop precisa estar expandido.
+    return isMobile || expandedRef.current;
+  }
+
   function onPointerDown(e: React.PointerEvent) {
+    if (!isMapInteractive()) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 1) { dragging.current = true; moved.current = false; }
@@ -562,6 +568,7 @@ export function ComunidadeMapa() {
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    if (!isMapInteractive()) return;
     const prev = pointers.current.get(e.pointerId);
     if (prev) {
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -589,6 +596,7 @@ export function ComunidadeMapa() {
   }
 
   function onPointerUp(e: React.PointerEvent) {
+    if (!isMapInteractive()) return;
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (pointers.current.size === 0) {
@@ -607,6 +615,7 @@ export function ComunidadeMapa() {
   }
 
   function onDoubleClick(e: React.MouseEvent) {
+    if (!isMapInteractive()) return;
     const rect = viewRef.current!.getBoundingClientRect();
     const px = e.clientX - rect.left, py = e.clientY - rect.top;
     const s = tRef.current.s;
@@ -617,6 +626,9 @@ export function ComunidadeMapa() {
     const el = viewRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      // Só sequestra o wheel se o mapa está interativo. Caso contrário deixa
+      // o scroll da página seguir naturalmente.
+      if (!isMapInteractive()) return;
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const s = tRef.current.s;
@@ -673,6 +685,46 @@ export function ComunidadeMapa() {
     return () => cancelAnim();
   }, [cancelAnim]);
 
+  // Page scroll contínuo (segurar setinha na borda direita do mapa)
+  const scrollDir = useRef<-1 | 0 | 1>(0);
+  const scrollRaf = useRef<number | null>(null);
+
+  const stopPageScroll = useCallback(() => {
+    scrollDir.current = 0;
+    if (scrollRaf.current !== null) {
+      cancelAnimationFrame(scrollRaf.current);
+      scrollRaf.current = null;
+    }
+  }, []);
+
+  const startPageScroll = useCallback((dir: -1 | 1) => {
+    scrollDir.current = dir;
+    if (scrollRaf.current !== null) return;
+    const tick = () => {
+      if (scrollDir.current !== 0) {
+        window.scrollBy(0, scrollDir.current * 9);
+        scrollRaf.current = requestAnimationFrame(tick);
+      } else {
+        scrollRaf.current = null;
+      }
+    };
+    scrollRaf.current = requestAnimationFrame(tick);
+  }, []);
+
+  useEffect(() => {
+    return () => stopPageScroll();
+  }, [stopPageScroll]);
+
+  // Minimizar (voltar pro modo compacto)
+  function collapseMap() {
+    stopPageScroll();
+    closeChat();
+    setShowGroups(false);
+    setShowForecast(false);
+    setT({ x: 0, y: 0, s: 1 });
+    setExpanded(false);
+  }
+
   // Handlers de grupos passados pro ChatCard
   const inviteToGroup = useCallback((groupId: string, riderName: string) => {
     setGroups((prev) => prev.map((g) => {
@@ -697,6 +749,9 @@ export function ComunidadeMapa() {
 
   const inv = 1 / t.s;
   const chatOpenDesktop = open && !isMobile;
+
+  // No mobile o mapa é sempre expandido. No desktop começa colapsado.
+  const isCollapsed = !isMobile && !expanded;
 
   // Level of detail baseado no zoom
   const showAllSpotNames = t.s >= 1.4;
@@ -732,7 +787,11 @@ export function ComunidadeMapa() {
         >
           <div
             ref={viewRef}
-            className="relative aspect-[16/12] md:aspect-[16/12] cursor-grab active:cursor-grabbing select-none touch-none"
+            className={`relative select-none touch-none ${isCollapsed ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
+            style={{
+              aspectRatio: isCollapsed ? "16 / 5" : "16 / 12",
+              transition: "aspect-ratio 500ms cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -932,103 +991,174 @@ export function ComunidadeMapa() {
               })}
             </div>
 
-            {/* ============ HUD fixo (não escala com zoom) ============ */}
+            {/* ============ HUD e painéis (só quando expandido) ============ */}
+            {!isCollapsed && (
+              <>
+                {/* Contador de riders (topo esquerda) */}
+                <div className="absolute top-3 left-3 md:top-4 md:left-4 flex items-center gap-2.5 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 pointer-events-none">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#39e58c] opacity-75" style={{ animation: "wiu-ping 1.8s infinite" }} />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#39e58c]" />
+                  </span>
+                  <span className="text-[11px] md:text-sm text-white font-medium tabular-nums">{DEMO_RIDERS.length} riders no vento agora</span>
+                </div>
 
-            {/* Contador de riders (topo esquerda) */}
-            <div className="absolute top-3 left-3 md:top-4 md:left-4 flex items-center gap-2.5 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2 pointer-events-none">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-[#39e58c] opacity-75" style={{ animation: "wiu-ping 1.8s infinite" }} />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#39e58c]" />
-              </span>
-              <span className="text-[11px] md:text-sm text-white font-medium tabular-nums">{DEMO_RIDERS.length} riders no vento agora</span>
-            </div>
+                {/* Vento + grupos (topo direita) */}
+                <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2">
+                    <Wind className="h-3.5 w-3.5 text-[#3fd0f0]" />
+                    <span className="text-[11px] md:text-sm text-white tabular-nums">22 nós, E</span>
+                  </div>
+                  <button
+                    onClick={() => setShowGroups(true)}
+                    className="flex items-center gap-2 rounded-full bg-[#00b4d8] px-3.5 py-2 text-[11px] md:text-sm font-semibold text-white shadow-lg shadow-[#00b4d8]/30 hover:brightness-110 transition"
+                  >
+                    <Users className="h-3.5 w-3.5" /> Grupos de velejo
+                    <span className="rounded-full bg-white/25 px-1.5 text-[10px] tabular-nums">{groups.length}</span>
+                  </button>
+                </div>
 
-            {/* Vento + grupos (topo direita) */}
-            <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur border border-white/10 px-3.5 py-2">
-                <Wind className="h-3.5 w-3.5 text-[#3fd0f0]" />
-                <span className="text-[11px] md:text-sm text-white tabular-nums">22 nós, E</span>
-              </div>
-              <button
-                onClick={() => setShowGroups(true)}
-                className="flex items-center gap-2 rounded-full bg-[#00b4d8] px-3.5 py-2 text-[11px] md:text-sm font-semibold text-white shadow-lg shadow-[#00b4d8]/30 hover:brightness-110 transition"
-              >
-                <Users className="h-3.5 w-3.5" /> Grupos de velejo
-                <span className="rounded-full bg-white/25 px-1.5 text-[10px] tabular-nums">{groups.length}</span>
-              </button>
-            </div>
+                {/* Zoom buttons (meio esquerda) */}
+                <div className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 flex flex-col items-start gap-2">
+                  <div className="flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
+                    <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
+                    <div className="h-px bg-white/10" />
+                    <button onClick={() => zoomBtn(-1)} aria-label="Afastar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Minus className="h-4 w-4" /></button>
+                    <div className="h-px bg-white/10" />
+                    <button onClick={() => setT({ x: 0, y: 0, s: 1 })} aria-label="Resetar" className="grid h-9 w-9 place-items-center text-white/60 hover:bg-white/10 transition"><Maximize2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                  <div className="rounded-md bg-black/50 backdrop-blur border border-white/10 px-2 py-1 text-[9px] text-white/60 tabular-nums">
+                    {Math.round(t.s * 100)}%
+                  </div>
+                </div>
 
-            {/* Zoom buttons (meio esquerda) */}
-            <div className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 flex flex-col items-start gap-2">
-              <div className="flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur">
-                <button onClick={() => zoomBtn(1)} aria-label="Aproximar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Plus className="h-4 w-4" /></button>
-                <div className="h-px bg-white/10" />
-                <button onClick={() => zoomBtn(-1)} aria-label="Afastar" className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 transition"><Minus className="h-4 w-4" /></button>
-                <div className="h-px bg-white/10" />
-                <button onClick={() => setT({ x: 0, y: 0, s: 1 })} aria-label="Resetar" className="grid h-9 w-9 place-items-center text-white/60 hover:bg-white/10 transition"><Maximize2 className="h-3.5 w-3.5" /></button>
-              </div>
-              <div className="rounded-md bg-black/50 backdrop-blur border border-white/10 px-2 py-1 text-[9px] text-white/60 tabular-nums">
-                {Math.round(t.s * 100)}%
-              </div>
-            </div>
+                {/* Handle de scroll da PÁGINA (borda direita, só desktop expandido) */}
+                {!isMobile && (
+                  <div className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col rounded-xl overflow-hidden border border-white/15 bg-black/60 backdrop-blur shadow-lg">
+                    <button
+                      aria-label="Rolar página pra cima"
+                      onPointerDown={(e) => { e.preventDefault(); startPageScroll(-1); }}
+                      onPointerUp={stopPageScroll}
+                      onPointerLeave={stopPageScroll}
+                      onPointerCancel={stopPageScroll}
+                      onClick={() => window.scrollBy({ top: -180, behavior: "smooth" })}
+                      className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 active:bg-white/15 transition"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <div className="h-px bg-white/10" />
+                    <button
+                      aria-label="Rolar página pra baixo"
+                      onPointerDown={(e) => { e.preventDefault(); startPageScroll(1); }}
+                      onPointerUp={stopPageScroll}
+                      onPointerLeave={stopPageScroll}
+                      onPointerCancel={stopPageScroll}
+                      onClick={() => window.scrollBy({ top: 180, behavior: "smooth" })}
+                      className="grid h-9 w-9 place-items-center text-white/80 hover:bg-white/10 active:bg-white/15 transition"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    <div className="h-px bg-white/10" />
+                    <button
+                      aria-label="Minimizar mapa"
+                      onClick={collapseMap}
+                      className="grid h-9 w-9 place-items-center text-white/70 hover:text-white hover:bg-white/10 transition"
+                    >
+                      <Minimize2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
 
-            {/* Coordenadas do cursor (rodapé centro, tipo Windy) */}
-            {cursor && !isMobile && !open && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-black/55 backdrop-blur border border-white/10 px-2.5 py-1 text-[10px] text-white/65 tabular-nums pointer-events-none">
-                {cursor.lat.toFixed(2)}°, {cursor.lng.toFixed(2)}°
-              </div>
+                {/* Coordenadas do cursor (rodapé centro, tipo Windy) */}
+                {cursor && !isMobile && !open && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-black/55 backdrop-blur border border-white/10 px-2.5 py-1 text-[10px] text-white/65 tabular-nums pointer-events-none">
+                    {cursor.lat.toFixed(2)}°, {cursor.lng.toFixed(2)}°
+                  </div>
+                )}
+
+                {/* Inset do Brasil (rodapé direita), esconde quando chat aberto */}
+                <AnimatePresence>
+                  {!chatOpenDesktop && (
+                    <motion.div
+                      key="inset"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute bottom-3 right-16 md:bottom-4 md:right-20 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
+                    >
+                      <BrasilInset />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* ============ PAINÉIS DE INTERAÇÃO ============ */}
+                {/* SpotPanel no canto INFERIOR-ESQUERDO, ChatCard no canto INFERIOR-DIREITO */}
+                <AnimatePresence>
+                  {open && !isMobile && (
+                    <>
+                      <motion.div
+                        key="spot"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        transition={{ type: "spring", damping: 26, stiffness: 300 }}
+                        className="absolute left-16 md:left-20 bottom-4 w-60 z-20"
+                      >
+                        <SpotPanel spot={open.spot} />
+                      </motion.div>
+                      <ChatCard
+                        key="chat"
+                        rider={open}
+                        onClose={closeChat}
+                        className="absolute right-16 md:right-20 bottom-4 w-[320px] z-20"
+                        compactHeight
+                        groups={groups}
+                        onInvite={inviteToGroup}
+                        onCreateGroup={createGroup}
+                      />
+                    </>
+                  )}
+                </AnimatePresence>
+              </>
             )}
 
-            {/* Inset do Brasil (rodapé direita), esconde quando chat aberto */}
-            <AnimatePresence>
-              {!chatOpenDesktop && (
-                <motion.div
-                  key="inset"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-24 h-24 md:w-28 md:h-28 rounded-xl overflow-hidden border border-white/15 bg-black/50 backdrop-blur p-1.5"
-                >
-                  <BrasilInset />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ============ PAINÉIS DE INTERAÇÃO ============ */}
-            {/* SpotPanel no canto INFERIOR-ESQUERDO, ChatCard no canto INFERIOR-DIREITO */}
-            <AnimatePresence>
-              {open && !isMobile && (
-                <>
-                  <motion.div
-                    key="spot"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    transition={{ type: "spring", damping: 26, stiffness: 300 }}
-                    className="absolute left-16 md:left-20 bottom-4 w-60 z-20"
-                  >
-                    <SpotPanel spot={open.spot} />
-                  </motion.div>
-                  <ChatCard
-                    key="chat"
-                    rider={open}
-                    onClose={closeChat}
-                    className="absolute right-4 bottom-4 w-[320px] z-20"
-                    compactHeight
-                    groups={groups}
-                    onInvite={inviteToGroup}
-                    onCreateGroup={createGroup}
-                  />
-                </>
-              )}
-            </AnimatePresence>
+            {/* ============ OVERLAY DO MODO COMPACTO ============ */}
+            {isCollapsed && (
+              <motion.button
+                key="collapsed-cta"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                onClick={() => setExpanded(true)}
+                className="absolute inset-0 z-30 flex items-center justify-center group cursor-pointer"
+                style={{
+                  background: "linear-gradient(180deg, rgba(6,20,30,0.55) 0%, rgba(6,20,30,0.15) 50%, rgba(6,20,30,0.55) 100%)",
+                }}
+              >
+                <div className="flex flex-col items-center gap-3 pointer-events-none">
+                  <div className="flex items-center gap-2.5 rounded-full bg-black/60 backdrop-blur border border-white/15 px-3 py-1.5 text-[10px] uppercase tracking-[0.24em] text-white/70">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#39e58c] opacity-75" style={{ animation: "wiu-ping 1.8s infinite" }} />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#39e58c]" />
+                    </span>
+                    {DEMO_RIDERS.length} riders no vento agora
+                  </div>
+                  <div className="inline-flex items-center gap-3 rounded-full bg-[#00b4d8] px-6 py-3 text-sm font-semibold text-white shadow-2xl shadow-[#00b4d8]/40 transition group-hover:brightness-110 group-hover:scale-[1.02]">
+                    <MousePointerClick className="h-4 w-4" />
+                    Toque pra explorar o mapa
+                  </div>
+                  <p className="text-[11px] text-white/50">
+                    Comunidade WIU, do MA à BA em tempo real
+                  </p>
+                </div>
+              </motion.button>
+            )}
           </div>
         </motion.div>
 
-        {/* Botão "Ver previsão dos picos" */}
+        {/* Botão "Ver previsão dos picos" (só aparece com o mapa expandido) */}
         <AnimatePresence>
-          {!chatOpenDesktop && (
+          {!chatOpenDesktop && !isCollapsed && (
             <motion.div
               key="forecast-btn"
               initial={{ opacity: 0, y: 10 }}
