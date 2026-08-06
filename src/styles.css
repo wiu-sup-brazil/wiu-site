@@ -82,6 +82,11 @@
   }
   html {
     scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox: escondida em favor da custom */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* WebKit/Blink: idem */
   }
   body {
     background-color: var(--paper);
@@ -89,6 +94,7 @@
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
+    -ms-overflow-style: none; /* IE/legacy Edge */
   }
   ::selection {
     background: var(--accent);
